@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -48,11 +48,13 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center mb-3 shadow-elevated">
-            <TrendingUp className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">PPC Ads Platform</h1>
-          <p className="text-muted-foreground text-sm mt-1">Masuk ke akun Anda</p>
+          <img
+            src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/22579f17-cebb-4c.png"
+            alt="Logo"
+            crossOrigin="anonymous"
+            className="w-40 h-40 object-contain mb-2"
+          />
+          <p className="text-muted-foreground text-sm">Masuk ke akun Anda</p>
         </div>
 
         {/* Card */}

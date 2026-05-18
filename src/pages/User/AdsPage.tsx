@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { formatIDR } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { MousePointerClick, ExternalLink, Clock, CheckCircle, AlertCircle, Timer, X } from "lucide-react";
+import { MousePointerClick, ExternalLink, Clock, CheckCircle, AlertCircle, Timer, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -30,6 +30,25 @@ const AdsPage: React.FC = () => {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [todayClicks, setTodayClicks] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Reset countdown (resets at next midnight)
+  const [resetCountdown, setResetCountdown] = useState("");
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0);
+      const diff = midnight.getTime() - now.getTime();
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setResetCountdown(`${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`);
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Timer modal state
   const [timerAd, setTimerAd] = useState<Ad | null>(null);
@@ -178,9 +197,16 @@ const AdsPage: React.FC = () => {
             style={{ width: `${Math.min(100, (todayClicks / limit) * 100)}%` }}
           />
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          {remaining > 0 ? `Sisa ${remaining} klik hari ini` : "Batas klik hari ini sudah terpenuhi"}
-        </p>
+        <div className="flex items-center justify-between mt-3 gap-3 flex-wrap">
+          <p className="text-xs text-muted-foreground">
+            {remaining > 0 ? `Sisa ${remaining} klik hari ini` : "Batas klik hari ini sudah terpenuhi"}
+          </p>
+          <div className="flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 rounded-full">
+            <RefreshCw className="w-3 h-3 text-primary" />
+            <span className="text-[11px] font-medium text-primary">Reset dalam</span>
+            <span className="text-[11px] font-bold text-primary font-mono">{resetCountdown}</span>
+          </div>
+        </div>
       </div>
 
       {/* Ads Grid */}

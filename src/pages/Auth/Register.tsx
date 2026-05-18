@@ -5,14 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, Eye, EyeOff, Mail, Lock, User, Phone, Gift, MailCheck } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { TrendingUp, Eye, EyeOff, Mail, Lock, User, Phone, Gift, MailCheck, ArrowLeft, Loader2 } from "lucide-react";
 import { isAllowedEmailDomain, ALLOWED_EMAIL_DOMAINS_LABEL } from "@/lib/emailDomains";
+
+type Step = "form" | "otp";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const refCode = searchParams.get("ref") || "";
   const { toast } = useToast();
+
+  const [step, setStep] = useState<Step>("form");
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -22,10 +27,28 @@ const Register: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+
+  // OTP state
+  const [otp, setOtp] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const startResendCountdown = () => {
+    setResendCountdown(60);
+    const timer = setInterval(() => {
+      setResendCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -61,7 +84,6 @@ const Register: React.FC = () => {
           phone: form.phone,
           ref_code: refCode.toUpperCase() || null,
         },
-        emailRedirectTo: `${window.location.origin}/login?verified=1`,
       },
     });
 
@@ -71,35 +93,140 @@ const Register: React.FC = () => {
       return;
     }
 
-    setSuccess(true);
+    toast({
+      title: "Kode OTP terkirim",
+      description: `Cek email ${form.email} untuk kode verifikasi.`,
+    });
+    setStep("otp");
+    startResendCountdown();
     setLoading(false);
   };
 
-  if (success) {
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (otp.length !== 6) {
+      toast({ title: "Masukkan 6 digit kode OTP", variant: "destructive" });
+      return;
+    }
+
+    setVerifying(true);
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: form.email,
+      token: otp,
+      type: "signup",
+    });
+
+    if (error) {
+      toast({
+        title: "Verifikasi gagal",
+        description: "Kode OTP salah atau sudah kadaluwarsa.",
+        variant: "destructive",
+      });
+      setOtp("");
+      setVerifying(false);
+      return;
+    }
+
+    toast({ title: "Akun berhasil diaktifkan!", description: "Selamat datang!" });
+    navigate("/dashboard");
+  };
+
+  const handleResendOTP = async () => {
+    if (resendCountdown > 0) return;
+    setResending(true);
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: form.email,
+    });
+
+    if (error) {
+      toast({ title: "Gagal kirim ulang", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Kode OTP baru terkirim", description: `Cek email ${form.email}` });
+      startResendCountdown();
+    }
+    setResending(false);
+  };
+
+  // ===== Step: OTP Verification =====
+  if (step === "otp") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
         <div className="w-full max-w-md">
-          <div className="bg-card rounded-2xl p-8 shadow-card border border-border text-center">
-            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-              <MailCheck className="w-8 h-8 text-green-500" />
+          <div className="bg-card rounded-2xl p-8 shadow-card border border-border">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <MailCheck className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-1">Verifikasi Email</h2>
+              <p className="text-sm text-muted-foreground">
+                Masukkan 6 digit kode OTP yang dikirim ke
+              </p>
+              <p className="text-sm font-semibold text-foreground mt-0.5">{form.email}</p>
             </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">Verifikasi Email Anda</h2>
-            <p className="text-sm text-muted-foreground mb-1">Kami telah mengirim link verifikasi ke:</p>
-            <p className="font-semibold text-foreground mb-4">{form.email}</p>
-            <div className="bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-5 text-left">
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                <strong>Penting:</strong> Akun belum aktif. Buka email Anda dan klik link verifikasi untuk mengaktifkan akun. Cek folder <strong>Spam/Promosi</strong> jika tidak ada di inbox.
+
+            <form onSubmit={handleVerifyOTP} className="space-y-5">
+              <div className="flex justify-center">
+                <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} className="w-11 h-12 text-lg" />
+                    <InputOTPSlot index={1} className="w-11 h-12 text-lg" />
+                    <InputOTPSlot index={2} className="w-11 h-12 text-lg" />
+                    <InputOTPSlot index={3} className="w-11 h-12 text-lg" />
+                    <InputOTPSlot index={4} className="w-11 h-12 text-lg" />
+                    <InputOTPSlot index={5} className="w-11 h-12 text-lg" />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={verifying || otp.length !== 6}>
+                {verifying ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Memverifikasi...</>
+                ) : (
+                  "Aktifkan Akun"
+                )}
+              </Button>
+
+              <div className="text-center text-sm">
+                <span className="text-muted-foreground">Tidak menerima kode? </span>
+                {resendCountdown > 0 ? (
+                  <span className="text-muted-foreground">Kirim ulang dalam {resendCountdown}s</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendOTP}
+                    disabled={resending}
+                    className="text-primary font-medium hover:underline"
+                  >
+                    {resending ? "Mengirim..." : "Kirim ulang"}
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => { setStep("form"); setOtp(""); }}
+                className="w-full text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Ganti email
+              </button>
+            </form>
+
+            <div className="mt-5 bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                <strong>Tips:</strong> Cek folder <strong>Spam/Promosi</strong> jika tidak menemukan email. Kode berlaku selama 1 jam.
               </p>
             </div>
-            <Button onClick={() => navigate("/login")} className="w-full">
-              Ke Halaman Login
-            </Button>
           </div>
         </div>
       </div>
     );
   }
 
+  // ===== Step: Form =====
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md">
@@ -112,7 +239,6 @@ const Register: React.FC = () => {
           <p className="text-muted-foreground text-sm mt-1">Bergabung dan mulai hasilkan uang</p>
         </div>
 
-        {/* Referral Banner */}
         {refCode && (
           <div className="mb-4 bg-green-500/10 border border-green-200 dark:border-green-800 rounded-xl p-3 flex items-center gap-2">
             <Gift className="w-4 h-4 text-green-500 shrink-0" />
@@ -122,7 +248,6 @@ const Register: React.FC = () => {
           </div>
         )}
 
-        {/* Card */}
         <div className="bg-card rounded-2xl p-8 shadow-card border border-border">
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
@@ -176,7 +301,7 @@ const Register: React.FC = () => {
             </div>
 
             <Button type="submit" className="w-full mt-2" disabled={loading}>
-              {loading ? "Memproses..." : "Daftar Sekarang"}
+              {loading ? "Memproses..." : "Daftar & Kirim OTP"}
             </Button>
           </form>
 

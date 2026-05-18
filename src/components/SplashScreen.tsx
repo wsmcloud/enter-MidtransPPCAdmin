@@ -57,10 +57,10 @@ const SplashScreen: React.FC = () => {
         <div className="relative">
           <div className="absolute inset-0 rounded-full bg-white/20 blur-3xl scale-110" />
           <img
-            src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/22579f17-cebb-4c.png"
+            src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/5900b682-fa25-45.png"
             alt="iklancuan.com"
             crossOrigin="anonymous"
-            className="relative w-64 h-64 sm:w-80 sm:h-80 object-contain drop-shadow-2xl"
+            className="relative w-72 h-72 sm:w-96 sm:h-96 object-contain drop-shadow-2xl rounded-3xl"
           />
         </div>
 

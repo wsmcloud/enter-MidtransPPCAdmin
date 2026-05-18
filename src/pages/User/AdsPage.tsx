@@ -190,53 +190,46 @@ const AdsPage: React.FC = () => {
           <p className="text-muted-foreground">Belum ada iklan aktif saat ini</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {ads.map(ad => (
-            <div key={ad.id} className={`bg-card rounded-2xl border shadow-card overflow-hidden transition-all duration-200 ${ad.clicked_today ? "opacity-60 border-border" : "border-border hover:shadow-elevated hover:-translate-y-0.5"}`}>
+            <div key={ad.id} className={`bg-card rounded-xl border shadow-card overflow-hidden transition-all duration-200 ${ad.clicked_today ? "opacity-60 border-border" : "border-border hover:shadow-elevated hover:-translate-y-0.5"}`}>
               {ad.image_url ? (
-                <div className="h-36 bg-muted overflow-hidden">
+                <div className="h-20 bg-muted overflow-hidden">
                   <img src={ad.image_url} alt={ad.title} className="w-full h-full object-cover" />
                 </div>
               ) : (
-                <div className="h-36 gradient-primary flex items-center justify-center">
-                  <ExternalLink className="w-10 h-10 text-white/60" />
+                <div className="h-20 gradient-primary flex items-center justify-center">
+                  <ExternalLink className="w-6 h-6 text-white/60" />
                 </div>
               )}
-              <div className="p-4">
-                <h3 className="font-semibold text-foreground text-sm mb-1 line-clamp-1">{ad.title}</h3>
-                {ad.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{ad.description}</p>}
+              <div className="p-2.5">
+                <h3 className="font-semibold text-foreground text-xs mb-1 line-clamp-1">{ad.title}</h3>
 
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Komisi per klik</p>
-                    <p className="text-lg font-bold text-green-500">{formatIDR(plan?.commission_per_click || 200)}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {ad.clicked_today ? (
-                      <Badge className="bg-green-500/10 text-green-600 border-green-200">
-                        <CheckCircle className="w-3 h-3 mr-1" /> Diklik
-                      </Badge>
-                    ) : remaining === 0 ? (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        <Clock className="w-3 h-3 mr-1" /> Besok
-                      </Badge>
-                    ) : null}
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Timer className="w-3 h-3" />
-                      {ad.view_duration || 30}s
-                    </div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-bold text-green-600">{formatIDR(plan?.commission_per_click || 200)}</p>
+                  <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                    <Timer className="w-2.5 h-2.5" />
+                    {ad.view_duration || 30}s
                   </div>
                 </div>
 
-                <Button
-                  className="w-full"
-                  size="sm"
-                  disabled={ad.clicked_today || remaining === 0}
-                  onClick={() => startTimer(ad)}
-                  variant={ad.clicked_today ? "outline" : "default"}
-                >
-                  {ad.clicked_today ? "Sudah Diklik" : `Tonton & Dapatkan ${formatIDR(plan?.commission_per_click || 200)}`}
-                </Button>
+                {ad.clicked_today ? (
+                  <Badge className="w-full justify-center bg-green-500/10 text-green-600 border-green-200 text-[10px] h-6">
+                    <CheckCircle className="w-2.5 h-2.5 mr-1" /> Sudah Diklik
+                  </Badge>
+                ) : remaining === 0 ? (
+                  <Badge variant="outline" className="w-full justify-center text-muted-foreground text-[10px] h-6">
+                    <Clock className="w-2.5 h-2.5 mr-1" /> Besok
+                  </Badge>
+                ) : (
+                  <Button
+                    className="w-full h-7 text-[11px] px-2"
+                    size="sm"
+                    onClick={() => startTimer(ad)}
+                  >
+                    Tonton & Dapat
+                  </Button>
+                )}
               </div>
             </div>
           ))}

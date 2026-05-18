@@ -136,11 +136,6 @@ const Dashboard: React.FC = () => {
               <p className="text-3xl font-bold text-foreground mt-1">{formatIDR(profile?.balance || 0)}</p>
             </div>
             <div className="flex gap-2">
-              <Link to="/dashboard/deposit">
-                <Button size="sm" className="h-8 text-xs gap-1">
-                  <ArrowDownToLine className="w-3 h-3" />Deposit
-                </Button>
-              </Link>
               <Link to="/dashboard/withdraw">
                 <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
                   <ArrowUpFromLine className="w-3 h-3" />Tarik

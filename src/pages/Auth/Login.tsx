@@ -49,8 +49,8 @@ const Login: React.FC = () => {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <img
-            src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/22579f17-cebb-4c.png"
-            alt="Logo"
+            src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/c2c9ca85-6f2c-45.png"
+            alt="iklancuan.com"
             crossOrigin="anonymous"
             className="w-40 h-40 object-contain mb-2"
           />

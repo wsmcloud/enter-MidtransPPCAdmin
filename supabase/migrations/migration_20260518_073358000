@@ -1,0 +1,178 @@
+
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Plans table
+CREATE TABLE plans (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  price NUMERIC(15,2) NOT NULL DEFAULT 0,
+  daily_clicks_limit INTEGER NOT NULL DEFAULT 10,
+  commission_per_click NUMERIC(10,2) NOT NULL DEFAULT 500,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Profiles table (extends auth.users)
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  phone VARCHAR(20),
+  role VARCHAR(10) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+  balance NUMERIC(15,2) NOT NULL DEFAULT 0,
+  plan_id UUID REFERENCES plans(id),
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Ads table
+CREATE TABLE ads (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  url TEXT NOT NULL,
+  image_url TEXT,
+  cpc_rate NUMERIC(10,2) NOT NULL DEFAULT 500,
+  daily_budget NUMERIC(15,2) NOT NULL DEFAULT 100000,
+  total_budget NUMERIC(15,2) NOT NULL DEFAULT 1000000,
+  spent_budget NUMERIC(15,2) NOT NULL DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'ended')),
+  created_by UUID REFERENCES profiles(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Ad clicks table
+CREATE TABLE ad_clicks (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  ad_id UUID NOT NULL REFERENCES ads(id) ON DELETE CASCADE,
+  earned_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  clicked_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Transactions table
+CREATE TABLE transactions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  type VARCHAR(20) NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'commission')),
+  amount NUMERIC(15,2) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'success', 'failed', 'cancelled')),
+  midtrans_order_id VARCHAR(255),
+  midtrans_token TEXT,
+  midtrans_redirect_url TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Withdrawal requests table
+CREATE TABLE withdrawal_requests (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  amount NUMERIC(15,2) NOT NULL,
+  bank_name VARCHAR(100) NOT NULL,
+  account_number VARCHAR(50) NOT NULL,
+  account_holder VARCHAR(255) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  admin_notes TEXT,
+  processed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS on all tables
+ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ad_clicks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE withdrawal_requests ENABLE ROW LEVEL SECURITY;
+
+-- Helper function to get user role
+CREATE OR REPLACE FUNCTION get_user_role(user_id UUID)
+RETURNS TEXT AS $$
+  SELECT role FROM profiles WHERE id = user_id;
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
+-- Helper function to check if current user is admin
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin');
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
+-- RLS Policies for plans
+CREATE POLICY "Everyone can read active plans" ON plans FOR SELECT USING (true);
+CREATE POLICY "Admin can manage plans" ON plans FOR ALL USING (is_admin());
+
+-- RLS Policies for profiles
+CREATE POLICY "Users can read own profile" ON profiles FOR SELECT USING (id = auth.uid() OR is_admin());
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (id = auth.uid() OR is_admin());
+CREATE POLICY "Admin can insert profiles" ON profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin can delete profiles" ON profiles FOR DELETE USING (is_admin());
+
+-- RLS Policies for ads
+CREATE POLICY "Everyone can read active ads" ON ads FOR SELECT USING (status = 'active' OR is_admin());
+CREATE POLICY "Admin can manage ads" ON ads FOR ALL USING (is_admin());
+
+-- RLS Policies for ad_clicks
+CREATE POLICY "Users can read own clicks" ON ad_clicks FOR SELECT USING (user_id = auth.uid() OR is_admin());
+CREATE POLICY "Users can insert own clicks" ON ad_clicks FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- RLS Policies for transactions
+CREATE POLICY "Users can read own transactions" ON transactions FOR SELECT USING (user_id = auth.uid() OR is_admin());
+CREATE POLICY "Users can insert own transactions" ON transactions FOR INSERT WITH CHECK (user_id = auth.uid() OR is_admin());
+CREATE POLICY "Users can update own transactions" ON transactions FOR UPDATE USING (user_id = auth.uid() OR is_admin());
+
+-- RLS Policies for withdrawal_requests
+CREATE POLICY "Users can read own withdrawals" ON withdrawal_requests FOR SELECT USING (user_id = auth.uid() OR is_admin());
+CREATE POLICY "Users can insert own withdrawals" ON withdrawal_requests FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Admin can update withdrawals" ON withdrawal_requests FOR UPDATE USING (is_admin());
+
+-- Trigger to auto-create profile on signup
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, full_name, email, role)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'role', 'user')
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Updated_at trigger
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER update_ads_updated_at BEFORE UPDATE ON ads FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER update_withdrawals_updated_at BEFORE UPDATE ON withdrawal_requests FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Seed default plans
+INSERT INTO plans (name, price, daily_clicks_limit, commission_per_click, description) VALUES
+('Free', 0, 5, 200, 'Paket gratis untuk pemula. Klik 5 iklan per hari.'),
+('Basic', 50000, 20, 500, 'Paket basic dengan 20 klik per hari.'),
+('Pro', 150000, 50, 800, 'Paket pro dengan 50 klik per hari.'),
+('Premium', 500000, 150, 1200, 'Paket premium dengan 150 klik per hari.');
+
+-- Enable realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE transactions;
+ALTER PUBLICATION supabase_realtime ADD TABLE withdrawal_requests;
+ALTER PUBLICATION supabase_realtime ADD TABLE profiles;

@@ -3109,13 +3109,288 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ad_clicks: {
+        Row: {
+          ad_id: string
+          clicked_at: string | null
+          earned_amount: number
+          id: string
+          user_id: string
+        }
+        Insert: {
+          ad_id: string
+          clicked_at?: string | null
+          earned_amount?: number
+          id?: string
+          user_id: string
+        }
+        Update: {
+          ad_id?: string
+          clicked_at?: string | null
+          earned_amount?: number
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_clicks_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_clicks_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads: {
+        Row: {
+          cpc_rate: number
+          created_at: string | null
+          created_by: string | null
+          daily_budget: number
+          description: string | null
+          id: string
+          image_url: string | null
+          spent_budget: number
+          status: string
+          title: string
+          total_budget: number
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          cpc_rate?: number
+          created_at?: string | null
+          created_by?: string | null
+          daily_budget?: number
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          spent_budget?: number
+          status?: string
+          title: string
+          total_budget?: number
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          cpc_rate?: number
+          created_at?: string | null
+          created_by?: string | null
+          daily_budget?: number
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          spent_budget?: number
+          status?: string
+          title?: string
+          total_budget?: number
+          updated_at?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          commission_per_click: number
+          created_at: string | null
+          daily_clicks_limit: number
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price: number
+        }
+        Insert: {
+          commission_per_click?: number
+          created_at?: string | null
+          daily_clicks_limit?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price?: number
+        }
+        Update: {
+          commission_per_click?: number
+          created_at?: string | null
+          daily_clicks_limit?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          balance: number
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean | null
+          phone: string | null
+          plan_id: string | null
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          balance?: number
+          created_at?: string | null
+          email: string
+          full_name: string
+          id: string
+          is_active?: boolean | null
+          phone?: string | null
+          plan_id?: string | null
+          role?: string
+          updated_at?: string | null
+        }
+        Update: {
+          balance?: number
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          phone?: string | null
+          plan_id?: string | null
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_plan_id_fkey"
+            columns: ["plan_id"]
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          midtrans_order_id: string | null
+          midtrans_redirect_url: string | null
+          midtrans_token: string | null
+          notes: string | null
+          status: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          midtrans_order_id?: string | null
+          midtrans_redirect_url?: string | null
+          midtrans_token?: string | null
+          notes?: string | null
+          status?: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          midtrans_order_id?: string | null
+          midtrans_redirect_url?: string | null
+          midtrans_token?: string | null
+          notes?: string | null
+          status?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawal_requests: {
+        Row: {
+          account_holder: string
+          account_number: string
+          admin_notes: string | null
+          amount: number
+          bank_name: string
+          created_at: string | null
+          id: string
+          processed_at: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_holder: string
+          account_number: string
+          admin_notes?: string | null
+          amount: number
+          bank_name: string
+          created_at?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_holder?: string
+          account_number?: string
+          admin_notes?: string | null
+          amount?: number
+          bank_name?: string
+          created_at?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_requests_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: string
+      }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

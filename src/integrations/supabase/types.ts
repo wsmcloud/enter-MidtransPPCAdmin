@@ -3153,8 +3153,10 @@ export type Database = {
           created_by: string | null
           daily_budget: number
           description: string | null
+          external_id: string | null
           id: string
           image_url: string | null
+          source: string
           spent_budget: number
           status: string
           title: string
@@ -3169,8 +3171,10 @@ export type Database = {
           created_by?: string | null
           daily_budget?: number
           description?: string | null
+          external_id?: string | null
           id?: string
           image_url?: string | null
+          source?: string
           spent_budget?: number
           status?: string
           title: string
@@ -3185,8 +3189,10 @@ export type Database = {
           created_by?: string | null
           daily_budget?: number
           description?: string | null
+          external_id?: string | null
           id?: string
           image_url?: string | null
+          source?: string
           spent_budget?: number
           status?: string
           title?: string

@@ -1,1 +1,2 @@
-project_id = "spb-t4njxjn5stm7z064"
+[functions.midtrans-notification]
+verify_jwt = false

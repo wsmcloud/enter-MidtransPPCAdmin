@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { formatIDR, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
-import { ArrowDownToLine, CreditCard, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ArrowDownToLine, CreditCard, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,6 +85,30 @@ const DepositPage: React.FC = () => {
     setTxLoading(false);
   };
 
+  const verifyPayment = async (orderId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke("verify-midtrans-payment", {
+        body: { order_id: orderId },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+
+      if (data?.status === "success") {
+        toast({ title: "Pembayaran berhasil!", description: "Saldo telah dikreditkan ke akun Anda." });
+        await refreshProfile();
+      } else if (data?.status === "pending") {
+        toast({ title: "Pembayaran pending", description: "Selesaikan pembayaran Anda. Saldo akan masuk otomatis." });
+      } else {
+        toast({ title: "Pembayaran diproses", description: "Status akan diperbarui segera." });
+      }
+    } catch (err) {
+      console.error("Verify payment error:", err);
+    } finally {
+      fetchTransactions();
+    }
+  };
+
   const handleDeposit = async () => {
     const numAmount = parseInt(amount);
     if (!numAmount || numAmount < 10000) {
@@ -105,6 +129,8 @@ const DepositPage: React.FC = () => {
         throw new Error(data?.error || "Gagal membuat transaksi");
       }
 
+      const orderId = data.order_id;
+
       // Load Snap with the client key from backend
       loadSnapScript(data.client_key, data.is_production);
 
@@ -113,17 +139,18 @@ const DepositPage: React.FC = () => {
 
       if (window.snap) {
         window.snap.pay(data.token, {
-          onSuccess: () => {
-            toast({ title: "Pembayaran berhasil!" });
-            fetchTransactions();
-            refreshProfile();
+          onSuccess: async () => {
+            // Delay sedikit agar Midtrans sempat proses
+            await new Promise(r => setTimeout(r, 2000));
+            await verifyPayment(orderId);
           },
-          onPending: () => {
-            toast({ title: "Pembayaran pending", description: "Selesaikan pembayaran Anda." });
-            fetchTransactions();
+          onPending: async () => {
+            await new Promise(r => setTimeout(r, 2000));
+            await verifyPayment(orderId);
           },
           onError: () => {
             toast({ title: "Pembayaran gagal", variant: "destructive" });
+            fetchTransactions();
           },
           onClose: () => {
             fetchTransactions();
@@ -221,7 +248,19 @@ const DepositPage: React.FC = () => {
                   <p className="text-sm font-medium text-foreground">{formatIDR(tx.amount)}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(tx.created_at)}</p>
                 </div>
-                {statusBadge(tx.status)}
+                <div className="flex items-center gap-2">
+                  {tx.status === "pending" && tx.midtrans_order_id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-primary gap-1"
+                      onClick={() => verifyPayment(tx.midtrans_order_id!)}
+                    >
+                      <RefreshCw className="w-3 h-3" />Cek
+                    </Button>
+                  )}
+                  {statusBadge(tx.status)}
+                </div>
               </div>
             ))
           )}

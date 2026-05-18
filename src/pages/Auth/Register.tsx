@@ -1,14 +1,16 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
+import { TrendingUp, Eye, EyeOff, Mail, Lock, User, Phone, Gift } from "lucide-react";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const refCode = searchParams.get("ref") || "";
   const { toast } = useToast();
   const [form, setForm] = useState({
     full_name: "",
@@ -57,11 +59,25 @@ const Register: React.FC = () => {
       return;
     }
 
-    // Update phone if provided
-    if (signUpData?.user && form.phone) {
-      await supabase.from("profiles")
-        .update({ phone: form.phone })
-        .eq("id", signUpData.user.id);
+    const userId = signUpData?.user?.id;
+
+    if (userId) {
+      const updates: Record<string, string> = {};
+      if (form.phone) updates.phone = form.phone;
+
+      // Link referral if ref code present
+      if (refCode) {
+        const { data: referrer } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("referral_code", refCode.toUpperCase())
+          .maybeSingle();
+        if (referrer) updates.referred_by = referrer.id;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from("profiles").update(updates).eq("id", userId);
+      }
     }
 
     toast({ title: "Registrasi berhasil!", description: "Selamat datang!" });
@@ -80,6 +96,16 @@ const Register: React.FC = () => {
           <h1 className="text-2xl font-bold text-foreground">Buat Akun Baru</h1>
           <p className="text-muted-foreground text-sm mt-1">Bergabung dan mulai hasilkan uang</p>
         </div>
+
+        {/* Referral Banner */}
+        {refCode && (
+          <div className="mb-4 bg-green-500/10 border border-green-200 dark:border-green-800 rounded-xl p-3 flex items-center gap-2">
+            <Gift className="w-4 h-4 text-green-500 shrink-0" />
+            <p className="text-sm text-green-700 dark:text-green-400">
+              Anda diundang dengan kode referral <strong>{refCode.toUpperCase()}</strong>
+            </p>
+          </div>
+        )}
 
         {/* Card */}
         <div className="bg-card rounded-2xl p-8 shadow-card border border-border">

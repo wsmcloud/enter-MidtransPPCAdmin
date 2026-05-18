@@ -9,6 +9,9 @@ interface Profile {
   phone: string | null;
   role: "admin" | "user";
   balance: number;
+  bonus_balance: number;
+  referral_code: string | null;
+  referred_by: string | null;
   plan_id: string | null;
   is_active: boolean;
   created_at: string;

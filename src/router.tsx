@@ -14,6 +14,7 @@ import WithdrawPage from "./pages/User/WithdrawPage";
 import TransactionsPage from "./pages/User/TransactionsPage";
 import ProfilePage from "./pages/User/ProfilePage";
 import UserPlansPage from "./pages/User/PlansPage";
+import ReferralPage from "./pages/User/ReferralPage";
 
 // Admin pages
 import AdminDashboard from "./pages/Admin/AdminDashboard";
@@ -67,6 +68,14 @@ export const routers = [
     element: (
       <ProtectedRoute>
         <UserLayout><TransactionsPage /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/dashboard/referral",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><ReferralPage /></UserLayout>
       </ProtectedRoute>
     ),
   },

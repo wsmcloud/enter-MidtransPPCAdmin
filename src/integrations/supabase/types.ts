@@ -3237,6 +3237,7 @@ export type Database = {
       profiles: {
         Row: {
           balance: number
+          bonus_balance: number
           created_at: string | null
           email: string
           full_name: string
@@ -3244,11 +3245,14 @@ export type Database = {
           is_active: boolean | null
           phone: string | null
           plan_id: string | null
+          referral_code: string | null
+          referred_by: string | null
           role: string
           updated_at: string | null
         }
         Insert: {
           balance?: number
+          bonus_balance?: number
           created_at?: string | null
           email: string
           full_name: string
@@ -3256,11 +3260,14 @@ export type Database = {
           is_active?: boolean | null
           phone?: string | null
           plan_id?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           role?: string
           updated_at?: string | null
         }
         Update: {
           balance?: number
+          bonus_balance?: number
           created_at?: string | null
           email?: string
           full_name?: string
@@ -3268,6 +3275,8 @@ export type Database = {
           is_active?: boolean | null
           phone?: string | null
           plan_id?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           role?: string
           updated_at?: string | null
         }
@@ -3276,6 +3285,61 @@ export type Database = {
             foreignKeyName: "profiles_plan_id_fkey"
             columns: ["plan_id"]
             referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_commissions: {
+        Row: {
+          commission_amount: number
+          created_at: string | null
+          deposit_amount: number
+          id: string
+          referred_id: string
+          referrer_id: string
+          transaction_id: string | null
+        }
+        Insert: {
+          commission_amount: number
+          created_at?: string | null
+          deposit_amount: number
+          id?: string
+          referred_id: string
+          referrer_id: string
+          transaction_id?: string | null
+        }
+        Update: {
+          commission_amount?: number
+          created_at?: string | null
+          deposit_amount?: number
+          id?: string
+          referred_id?: string
+          referrer_id?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_commissions_referred_id_fkey"
+            columns: ["referred_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_commissions_referrer_id_fkey"
+            columns: ["referrer_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_commissions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -3383,6 +3447,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_referral_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: string

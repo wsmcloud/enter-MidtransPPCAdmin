@@ -5,6 +5,71 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function creditReferralBonus(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  transactionId: string,
+  depositAmount: number
+) {
+  try {
+    // Get user's referrer
+    const { data: userProfile } = await supabase
+      .from("profiles")
+      .select("referred_by")
+      .eq("id", userId)
+      .single();
+
+    if (!userProfile?.referred_by) return;
+
+    const referrerId = userProfile.referred_by;
+    const commissionAmount = Math.floor(depositAmount * 0.02); // 2%
+
+    if (commissionAmount <= 0) return;
+
+    // Check if referral commission already given for this transaction
+    const { data: existing } = await supabase
+      .from("referral_commissions")
+      .select("id")
+      .eq("transaction_id", transactionId)
+      .maybeSingle();
+
+    if (existing) {
+      console.log("Referral commission already credited for transaction:", transactionId);
+      return;
+    }
+
+    // Get referrer's current bonus balance
+    const { data: referrer } = await supabase
+      .from("profiles")
+      .select("bonus_balance")
+      .eq("id", referrerId)
+      .single();
+
+    if (!referrer) return;
+
+    const newBonusBalance = (referrer.bonus_balance || 0) + commissionAmount;
+
+    // Update referrer bonus balance
+    await supabase
+      .from("profiles")
+      .update({ bonus_balance: newBonusBalance })
+      .eq("id", referrerId);
+
+    // Record commission
+    await supabase.from("referral_commissions").insert({
+      referrer_id: referrerId,
+      referred_id: userId,
+      transaction_id: transactionId,
+      deposit_amount: depositAmount,
+      commission_amount: commissionAmount,
+    });
+
+    console.log(`Referral bonus: ${commissionAmount} credited to ${referrerId} for deposit ${depositAmount} by ${userId}`);
+  } catch (err) {
+    console.error("Referral bonus error:", err);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,7 +89,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get user from token
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -48,7 +112,6 @@ Deno.serve(async (req) => {
 
     console.log(`Verifying payment for order: ${order_id}, user: ${user.id}`);
 
-    // Find transaction — only allow user's own
     const { data: transaction, error: txErr } = await supabase
       .from("transactions")
       .select("*")
@@ -57,22 +120,18 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (txErr || !transaction) {
-      console.error("Transaction not found:", order_id, txErr);
       return new Response(JSON.stringify({ error: "Transaction not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Already credited
     if (transaction.status === "success") {
-      console.log("Transaction already success:", order_id);
       return new Response(JSON.stringify({ status: "success", already_credited: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Query Midtrans status API
     const serverKey = Deno.env.get("MIDTRANS_SERVER_KEY")!;
     const isProduction = !serverKey.includes("SB-");
     const baseUrl = isProduction
@@ -87,7 +146,7 @@ Deno.serve(async (req) => {
     });
 
     const midtransData = await statusRes.json();
-    console.log("Midtrans status response:", JSON.stringify(midtransData));
+    console.log("Midtrans status:", JSON.stringify(midtransData));
 
     const { transaction_status, fraud_status } = midtransData;
 
@@ -96,33 +155,22 @@ Deno.serve(async (req) => {
       newStatus = (fraud_status === "accept" || !fraud_status) ? "success" : "failed";
     } else if (["cancel", "deny", "expire"].includes(transaction_status)) {
       newStatus = "failed";
-    } else if (transaction_status === "pending") {
-      newStatus = "pending";
     }
 
-    // Update transaction status
-    await supabase
-      .from("transactions")
-      .update({ status: newStatus })
-      .eq("id", transaction.id);
+    await supabase.from("transactions").update({ status: newStatus }).eq("id", transaction.id);
 
-    // Credit balance if success
     if (newStatus === "success") {
       const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", user.id)
-        .single();
+        .from("profiles").select("balance").eq("id", user.id).single();
 
       if (profile) {
         const newBalance = (profile.balance || 0) + parseFloat(transaction.amount);
-        await supabase
-          .from("profiles")
-          .update({ balance: newBalance })
-          .eq("id", user.id);
-
-        console.log(`Balance credited: ${user.id} +${transaction.amount} = ${newBalance}`);
+        await supabase.from("profiles").update({ balance: newBalance }).eq("id", user.id);
+        console.log(`Balance credited: +${transaction.amount} for ${user.id}`);
       }
+
+      // Credit 2% referral bonus to referrer
+      await creditReferralBonus(supabase, user.id, transaction.id, parseFloat(transaction.amount));
     }
 
     return new Response(JSON.stringify({ status: newStatus, midtrans_status: transaction_status }), {

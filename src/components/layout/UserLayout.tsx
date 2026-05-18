@@ -5,7 +5,7 @@ import { cn, formatIDR } from "@/lib/utils";
 import {
   LayoutDashboard, MousePointerClick, Wallet, ArrowDownToLine,
   ArrowUpFromLine, History, User, LogOut, Menu, X, ChevronRight,
-  Bell, TrendingUp, Package
+  Bell, TrendingUp, Package, Gift
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/dashboard/ads", label: "Klik Iklan", icon: MousePointerClick },
   { path: "/dashboard/plans", label: "Paket", icon: Package },
+  { path: "/dashboard/referral", label: "Referral", icon: Gift },
   { path: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
   { path: "/dashboard/withdraw", label: "Tarik Dana", icon: ArrowUpFromLine },
   { path: "/dashboard/transactions", label: "Riwayat", icon: History },
@@ -47,6 +48,12 @@ const UserLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <div className="mx-4 mt-4 p-4 rounded-xl bg-sidebar-accent">
         <p className="text-xs text-sidebar-foreground/60 mb-1">Saldo Anda</p>
         <p className="text-xl font-bold text-white">{formatIDR(profile?.balance || 0)}</p>
+        {(profile?.bonus_balance || 0) > 0 && (
+          <p className="text-xs text-amber-300 mt-1 flex items-center gap-1">
+            <Gift className="w-3 h-3" />
+            Bonus: {formatIDR(profile?.bonus_balance || 0)}
+          </p>
+        )}
         <p className="text-xs text-sidebar-foreground/60 mt-1 capitalize">{profile?.full_name}</p>
       </div>
 

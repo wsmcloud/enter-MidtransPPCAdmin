@@ -3161,6 +3161,7 @@ export type Database = {
           total_budget: number
           updated_at: string | null
           url: string
+          view_duration: number
         }
         Insert: {
           cpc_rate?: number
@@ -3176,6 +3177,7 @@ export type Database = {
           total_budget?: number
           updated_at?: string | null
           url: string
+          view_duration?: number
         }
         Update: {
           cpc_rate?: number
@@ -3191,6 +3193,7 @@ export type Database = {
           total_budget?: number
           updated_at?: string | null
           url?: string
+          view_duration?: number
         }
         Relationships: [
           {

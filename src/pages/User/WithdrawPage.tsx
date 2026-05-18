@@ -23,7 +23,7 @@ interface WithdrawRequest {
 
 const BANKS = ["BCA", "BNI", "BRI", "Mandiri", "BSI", "CIMB Niaga", "Danamon", "Permata", "BTN", "OVO", "GoPay", "DANA"];
 
-const MIN_WITHDRAW = 50000;
+const MIN_WITHDRAW = 10000;
 
 const WithdrawPage: React.FC = () => {
   const { profile, refreshProfile } = useAuth();

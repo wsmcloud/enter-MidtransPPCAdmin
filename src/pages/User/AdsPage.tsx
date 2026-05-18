@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { formatIDR } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { MousePointerClick, ExternalLink, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { MousePointerClick, ExternalLink, Clock, CheckCircle, AlertCircle, Timer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,6 +14,7 @@ interface Ad {
   url: string;
   image_url: string | null;
   cpc_rate: number;
+  view_duration: number;
   clicked_today?: boolean;
 }
 
@@ -29,7 +30,13 @@ const AdsPage: React.FC = () => {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [todayClicks, setTodayClicks] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [clickingId, setClickingId] = useState<string | null>(null);
+
+  // Timer modal state
+  const [timerAd, setTimerAd] = useState<Ad | null>(null);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [timerDone, setTimerDone] = useState(false);
+  const [crediting, setCrediting] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = async () => {
     if (!profile) return;
@@ -57,40 +64,66 @@ const AdsPage: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [profile?.id]);
 
-  const handleClick = async (ad: Ad) => {
-    if (!profile) return;
-    if (ad.clicked_today) {
-      toast({ title: "Sudah diklik", description: "Anda sudah mengklik iklan ini hari ini.", variant: "destructive" });
-      return;
-    }
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
+  const startTimer = (ad: Ad) => {
     const limit = plan?.daily_clicks_limit || 5;
     if (todayClicks >= limit) {
       toast({ title: "Batas klik tercapai", description: `Anda sudah mencapai batas ${limit} klik hari ini.`, variant: "destructive" });
       return;
     }
+    if (ad.clicked_today) return;
 
-    setClickingId(ad.id);
-
-    // Open ad URL
+    // Open ad URL in new tab
     window.open(ad.url, "_blank");
+
+    // Setup timer modal
+    setTimerAd(ad);
+    setTimerDone(false);
+    setTimeLeft(ad.view_duration || 30);
+
+    // Start countdown
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          setTimerDone(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const closeTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimerAd(null);
+    setTimeLeft(0);
+    setTimerDone(false);
+    setCrediting(false);
+  };
+
+  const creditCommission = async () => {
+    if (!profile || !timerAd || !timerDone) return;
+    setCrediting(true);
 
     const earnAmount = plan?.commission_per_click || 200;
 
-    // Record click
     const { error: clickError } = await supabase.from("ad_clicks").insert({
       user_id: profile.id,
-      ad_id: ad.id,
+      ad_id: timerAd.id,
       earned_amount: earnAmount,
     });
 
     if (clickError) {
       toast({ title: "Gagal merekam klik", variant: "destructive" });
-      setClickingId(null);
+      closeTimer();
       return;
     }
 
-    // Add balance & commission transaction
     const newBalance = (profile.balance || 0) + earnAmount;
     await Promise.all([
       supabase.from("profiles").update({ balance: newBalance }).eq("id", profile.id),
@@ -99,20 +132,21 @@ const AdsPage: React.FC = () => {
         type: "commission",
         amount: earnAmount,
         status: "success",
-        notes: `Komisi klik iklan: ${ad.title}`,
+        notes: `Komisi klik iklan: ${timerAd.title}`,
       }),
-      supabase.from("ads").update({ spent_budget: ad.cpc_rate }).eq("id", ad.id),
     ]);
 
-    toast({ title: `+${formatIDR(earnAmount)} ditambahkan!`, description: "Komisi berhasil dikreditkan ke saldo Anda." });
-
-    setClickingId(null);
+    toast({ title: `+${formatIDR(earnAmount)} dikreditkan!`, description: "Komisi berhasil ditambahkan ke saldo." });
+    closeTimer();
     fetchData();
     refreshProfile();
   };
 
   const limit = plan?.daily_clicks_limit || 5;
   const remaining = Math.max(0, limit - todayClicks);
+  const totalDuration = timerAd?.view_duration || 30;
+  const progress = totalDuration > 0 ? ((totalDuration - timeLeft) / totalDuration) * 100 : 100;
+  const circumference = 2 * Math.PI * 44; // r=44
 
   if (loading) {
     return (
@@ -126,7 +160,7 @@ const AdsPage: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Klik Iklan</h2>
-        <p className="text-muted-foreground text-sm mt-1">Klik iklan untuk mendapatkan komisi. Setiap iklan bisa diklik 1x per hari.</p>
+        <p className="text-muted-foreground text-sm mt-1">Tonton iklan sesuai durasi untuk mendapatkan komisi. 1 iklan per hari.</p>
       </div>
 
       {/* Status Bar */}
@@ -159,12 +193,11 @@ const AdsPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {ads.map(ad => (
             <div key={ad.id} className={`bg-card rounded-2xl border shadow-card overflow-hidden transition-all duration-200 ${ad.clicked_today ? "opacity-60 border-border" : "border-border hover:shadow-elevated hover:-translate-y-0.5"}`}>
-              {ad.image_url && (
+              {ad.image_url ? (
                 <div className="h-36 bg-muted overflow-hidden">
                   <img src={ad.image_url} alt={ad.title} className="w-full h-full object-cover" />
                 </div>
-              )}
-              {!ad.image_url && (
+              ) : (
                 <div className="h-36 gradient-primary flex items-center justify-center">
                   <ExternalLink className="w-10 h-10 text-white/60" />
                 </div>
@@ -178,29 +211,106 @@ const AdsPage: React.FC = () => {
                     <p className="text-xs text-muted-foreground">Komisi per klik</p>
                     <p className="text-lg font-bold text-green-500">{formatIDR(plan?.commission_per_click || 200)}</p>
                   </div>
-                  {ad.clicked_today ? (
-                    <Badge className="bg-green-500/10 text-green-600 border-green-200">
-                      <CheckCircle className="w-3 h-3 mr-1" /> Diklik
-                    </Badge>
-                  ) : remaining === 0 ? (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      <Clock className="w-3 h-3 mr-1" /> Besok
-                    </Badge>
-                  ) : null}
+                  <div className="flex flex-col items-end gap-1">
+                    {ad.clicked_today ? (
+                      <Badge className="bg-green-500/10 text-green-600 border-green-200">
+                        <CheckCircle className="w-3 h-3 mr-1" /> Diklik
+                      </Badge>
+                    ) : remaining === 0 ? (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        <Clock className="w-3 h-3 mr-1" /> Besok
+                      </Badge>
+                    ) : null}
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Timer className="w-3 h-3" />
+                      {ad.view_duration || 30}s
+                    </div>
+                  </div>
                 </div>
 
                 <Button
                   className="w-full"
                   size="sm"
-                  disabled={ad.clicked_today || remaining === 0 || clickingId === ad.id}
-                  onClick={() => handleClick(ad)}
+                  disabled={ad.clicked_today || remaining === 0}
+                  onClick={() => startTimer(ad)}
                   variant={ad.clicked_today ? "outline" : "default"}
                 >
-                  {clickingId === ad.id ? "Memproses..." : ad.clicked_today ? "Sudah Diklik" : "Klik & Kunjungi"}
+                  {ad.clicked_today ? "Sudah Diklik" : `Tonton & Dapatkan ${formatIDR(plan?.commission_per_click || 200)}`}
                 </Button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Timer Modal Overlay */}
+      {timerAd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-card rounded-3xl shadow-2xl border border-border w-full max-w-sm p-7 text-center relative">
+            {/* Close (only allowed if not done and after warning) */}
+            {!timerDone && (
+              <button
+                onClick={closeTimer}
+                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+                title="Tutup (komisi tidak akan diberikan)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+
+            {!timerDone ? (
+              <>
+                <div className="flex items-center gap-2 justify-center mb-2">
+                  <Timer className="w-4 h-4 text-primary" />
+                  <p className="text-sm text-muted-foreground font-medium">Tonton Iklan</p>
+                </div>
+                <h3 className="font-bold text-foreground text-base mb-5 line-clamp-2">{timerAd.title}</h3>
+
+                {/* Circular Timer */}
+                <div className="relative w-28 h-28 mx-auto mb-5">
+                  <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="44" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+                    <circle
+                      cx="50" cy="50" r="44" fill="none"
+                      stroke="hsl(var(--primary))" strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={circumference - (circumference * progress) / 100}
+                      className="transition-all duration-1000 ease-linear"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-bold text-foreground">{timeLeft}</span>
+                    <span className="text-xs text-muted-foreground">detik</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground mb-1">
+                  Iklan sudah terbuka di tab baru. Tonton selama <strong>{timerAd.view_duration}s</strong>.
+                </p>
+                <p className="text-xs text-amber-600 font-medium">
+                  Jangan tutup halaman ini — timer akan berjalan otomatis
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                </div>
+                <h3 className="font-bold text-foreground text-lg mb-1">Selesai!</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Anda akan mendapatkan <span className="font-bold text-green-600">{formatIDR(plan?.commission_per_click || 200)}</span>
+                </p>
+                <Button
+                  className="w-full bg-green-500 hover:bg-green-600"
+                  onClick={creditCommission}
+                  disabled={crediting}
+                >
+                  {crediting ? "Memproses..." : `Klaim +${formatIDR(plan?.commission_per_click || 200)}`}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

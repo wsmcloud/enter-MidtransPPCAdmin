@@ -39,14 +39,13 @@ const Register: React.FC = () => {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
         data: {
           full_name: form.full_name,
           phone: form.phone,
-          role: "user",
         },
         emailRedirectTo: `${window.location.origin}/dashboard`,
       },
@@ -58,13 +57,14 @@ const Register: React.FC = () => {
       return;
     }
 
-    // Update phone after signup
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && form.phone) {
-      await supabase.from("profiles").update({ phone: form.phone }).eq("id", user.id);
+    // Update phone if provided
+    if (signUpData?.user && form.phone) {
+      await supabase.from("profiles")
+        .update({ phone: form.phone })
+        .eq("id", signUpData.user.id);
     }
 
-    toast({ title: "Registrasi berhasil!", description: "Silakan login ke akun Anda." });
+    toast({ title: "Registrasi berhasil!", description: "Selamat datang!" });
     navigate("/dashboard");
     setLoading(false);
   };

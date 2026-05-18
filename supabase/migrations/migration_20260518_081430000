@@ -1,0 +1,68 @@
+
+-- Fix: Drop and recreate the trigger function with proper RLS bypass
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user();
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email, phone, role)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    NEW.email,
+    NEW.raw_user_meta_data->>'phone',
+    'user'
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE LOG 'Error in handle_new_user: %', SQLERRM;
+    RETURN NEW;
+END;
+$$;
+
+-- Re-create trigger
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
+
+-- Fix RLS: Drop old policies and recreate with proper rules
+DROP POLICY IF EXISTS "Admin can insert profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can read own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Admin can delete profiles" ON profiles;
+
+-- Allow service role to bypass RLS
+ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Allow all operations for the postgres/service role (bypass RLS)
+CREATE POLICY "Service role full access" ON profiles
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- Users can read their own profile OR admin can read all
+CREATE POLICY "Users read own profile" ON profiles
+  FOR SELECT
+  TO authenticated
+  USING (id = auth.uid() OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+
+-- Users can update their own profile OR admin can update all  
+CREATE POLICY "Users update own profile" ON profiles
+  FOR UPDATE
+  TO authenticated
+  USING (id = auth.uid() OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin')
+  WITH CHECK (id = auth.uid() OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+
+-- Allow inserts for authenticated users (needed for trigger and profile creation)
+CREATE POLICY "Allow profile inserts" ON profiles
+  FOR INSERT
+  WITH CHECK (true);

@@ -1,0 +1,20 @@
+
+-- Fix: Set Siti's referred_by to Elsa
+UPDATE profiles 
+SET referred_by = 'ce3544bc-536f-4fd1-8079-10b31ee0c08e'
+WHERE id = 'ba68af7e-185f-4d29-bbbd-b334a0e9bcff';
+
+-- Credit Elsa 2% of Siti's 10000 deposit = 200
+UPDATE profiles
+SET bonus_balance = bonus_balance + 200
+WHERE id = 'ce3544bc-536f-4fd1-8079-10b31ee0c08e';
+
+-- Record the referral commission
+INSERT INTO referral_commissions (referrer_id, referred_id, transaction_id, deposit_amount, commission_amount)
+VALUES (
+  'ce3544bc-536f-4fd1-8079-10b31ee0c08e',
+  'ba68af7e-185f-4d29-bbbd-b334a0e9bcff',
+  '209e0ee2-63fe-498c-8648-208269f3df74',
+  10000,
+  200
+);

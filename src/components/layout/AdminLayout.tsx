@@ -101,7 +101,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-sidebar-background flex-col shrink-0">
+      <aside className="hidden lg:flex w-64 bg-sidebar flex-col shrink-0">
         <SidebarContent />
       </aside>
 
@@ -112,7 +112,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       {/* Mobile Sidebar */}
       <aside className={cn(
-        "fixed left-0 top-0 z-50 h-full w-64 bg-sidebar-background transform transition-transform duration-300 lg:hidden",
+        "fixed left-0 top-0 z-50 h-full w-64 bg-sidebar transform transition-transform duration-300 lg:hidden",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <SidebarContent />

@@ -1,0 +1,84 @@
+
+-- Fix recursive RLS on profiles and transactions
+-- Drop problematic policies first
+DROP POLICY IF EXISTS "Users read own profile" ON profiles;
+DROP POLICY IF EXISTS "Users update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can read own transactions" ON transactions;
+DROP POLICY IF EXISTS "Users can insert own transactions" ON transactions;
+DROP POLICY IF EXISTS "Users can update own transactions" ON transactions;
+DROP POLICY IF EXISTS "Users can read own clicks" ON ad_clicks;
+DROP POLICY IF EXISTS "Users can read own withdrawals" ON withdrawal_requests;
+DROP POLICY IF EXISTS "Users can insert own withdrawals" ON withdrawal_requests;
+DROP POLICY IF EXISTS "Admin can update withdrawals" ON withdrawal_requests;
+
+-- Fix profiles policies (use is_admin() SECURITY DEFINER to avoid recursion)
+CREATE POLICY "Users read own profile" ON profiles
+  FOR SELECT
+  TO authenticated
+  USING (id = auth.uid() OR is_admin());
+
+CREATE POLICY "Users update own profile" ON profiles
+  FOR UPDATE
+  TO authenticated
+  USING (id = auth.uid() OR is_admin())
+  WITH CHECK (id = auth.uid() OR is_admin());
+
+-- Fix transactions policies
+CREATE POLICY "Users read own transactions" ON transactions
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid() OR is_admin());
+
+CREATE POLICY "Users insert own transactions" ON transactions
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (user_id = auth.uid() OR is_admin());
+
+CREATE POLICY "Users update transactions" ON transactions
+  FOR UPDATE
+  TO authenticated
+  USING (user_id = auth.uid() OR is_admin());
+
+-- Allow service role full access on transactions
+CREATE POLICY "Service role full access on transactions" ON transactions
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- Fix ad_clicks policies
+CREATE POLICY "Users read own clicks" ON ad_clicks
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid() OR is_admin());
+
+CREATE POLICY "Users insert own clicks" ON ad_clicks
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+-- Fix withdrawal_requests policies
+CREATE POLICY "Users read own withdrawals" ON withdrawal_requests
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid() OR is_admin());
+
+CREATE POLICY "Users insert withdrawals" ON withdrawal_requests
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Admin update withdrawals" ON withdrawal_requests
+  FOR UPDATE
+  TO authenticated
+  USING (is_admin());
+
+CREATE POLICY "Service role full access on withdrawals" ON withdrawal_requests
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- Service role full on profiles
+CREATE POLICY "Service role full on profiles" ON profiles
+  TO service_role
+  USING (true)
+  WITH CHECK (true);

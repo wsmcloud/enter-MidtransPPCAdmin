@@ -35,7 +35,10 @@ const TransactionsPage: React.FC = () => {
   }, [profile?.id, page, filter]);
 
   const fetchTransactions = async () => {
-    if (!profile) return;
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     let query = supabase

@@ -1,0 +1,44 @@
+
+-- Drop and recreate handle_new_user trigger with referral support
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user();
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_referrer_id UUID;
+  v_ref_code TEXT;
+BEGIN
+  -- Get ref_code from user metadata
+  v_ref_code := NEW.raw_user_meta_data->>'ref_code';
+
+  -- Resolve referrer ID from ref_code if present
+  IF v_ref_code IS NOT NULL AND v_ref_code != '' THEN
+    SELECT id INTO v_referrer_id
+    FROM public.profiles
+    WHERE referral_code = UPPER(v_ref_code)
+    LIMIT 1;
+  END IF;
+
+  INSERT INTO public.profiles (id, full_name, email, phone, role, referral_code, referred_by)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    NEW.email,
+    NEW.raw_user_meta_data->>'phone',
+    'user',
+    generate_referral_code(),
+    v_referrer_id
+  ) ON CONFLICT (id) DO NOTHING;
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE LOG 'Error in handle_new_user: %', SQLERRM;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

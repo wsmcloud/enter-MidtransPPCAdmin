@@ -3451,6 +3451,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_referrer_id_by_code: {
+        Args: { code: string }
+        Returns: string
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: string

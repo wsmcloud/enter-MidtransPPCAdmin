@@ -1,0 +1,6 @@
+
+-- Function to resolve referral code to referrer ID, bypasses RLS
+CREATE OR REPLACE FUNCTION get_referrer_id_by_code(code TEXT)
+RETURNS UUID AS $$
+  SELECT id FROM profiles WHERE referral_code = UPPER(code) LIMIT 1;
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;

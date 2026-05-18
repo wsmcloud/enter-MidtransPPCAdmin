@@ -48,6 +48,7 @@ const Register: React.FC = () => {
         data: {
           full_name: form.full_name,
           phone: form.phone,
+          ref_code: refCode.toUpperCase() || null,
         },
         emailRedirectTo: `${window.location.origin}/dashboard`,
       },
@@ -67,12 +68,9 @@ const Register: React.FC = () => {
 
       // Link referral if ref code present
       if (refCode) {
-        const { data: referrer } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("referral_code", refCode.toUpperCase())
-          .maybeSingle();
-        if (referrer) updates.referred_by = referrer.id;
+        const { data: referrerId } = await supabase
+          .rpc("get_referrer_id_by_code", { code: refCode.toUpperCase() });
+        if (referrerId) updates.referred_by = referrerId as string;
       }
 
       if (Object.keys(updates).length > 0) {

@@ -1,28 +1,67 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, MailWarning, Loader2, CheckCircle } from "lucide-react";
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const verified = searchParams.get("verified") === "1";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    if (verified) {
+      toast({
+        title: "Email berhasil diverifikasi!",
+        description: "Silakan login dengan akun Anda.",
+      });
+    }
+  }, [verified, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setNeedsVerification(false);
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      toast({ title: "Login gagal", description: error.message, variant: "destructive" });
+      // Detect email not confirmed error
+      const msg = error.message.toLowerCase();
+      if (msg.includes("email") && (msg.includes("not confirmed") || msg.includes("not verified"))) {
+        setNeedsVerification(true);
+        toast({
+          title: "Email belum diverifikasi",
+          description: "Silakan cek email Anda dan klik link verifikasi.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Login gagal", description: error.message, variant: "destructive" });
+      }
+      setLoading(false);
+      return;
+    }
+
+    // Extra safety: block if email not confirmed
+    if (data.user && !data.user.email_confirmed_at) {
+      await supabase.auth.signOut();
+      setNeedsVerification(true);
+      toast({
+        title: "Email belum diverifikasi",
+        description: "Akun Anda belum aktif. Silakan verifikasi email terlebih dahulu.",
+        variant: "destructive",
+      });
       setLoading(false);
       return;
     }
@@ -43,6 +82,28 @@ const Login: React.FC = () => {
     setLoading(false);
   };
 
+  const handleResendVerification = async () => {
+    if (!email) {
+      toast({ title: "Masukkan email Anda terlebih dahulu", variant: "destructive" });
+      return;
+    }
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/login?verified=1` },
+    });
+    if (error) {
+      toast({ title: "Gagal kirim ulang", description: error.message, variant: "destructive" });
+    } else {
+      toast({
+        title: "Email verifikasi terkirim",
+        description: `Cek inbox/spam ${email}`,
+      });
+    }
+    setResending(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
@@ -56,6 +117,15 @@ const Login: React.FC = () => {
           />
           <p className="text-muted-foreground text-sm">Masuk ke akun Anda</p>
         </div>
+
+        {verified && (
+          <div className="mb-4 bg-green-500/10 border border-green-200 dark:border-green-800 rounded-xl p-3 flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+            <p className="text-sm text-green-700 dark:text-green-400">
+              Email berhasil diverifikasi. Silakan login.
+            </p>
+          </div>
+        )}
 
         {/* Card */}
         <div className="bg-card rounded-2xl p-8 shadow-card border border-border">
@@ -98,6 +168,32 @@ const Login: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {needsVerification && (
+              <div className="bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-lg p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <MailWarning className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-700 dark:text-amber-400">
+                    <p className="font-semibold">Email belum diverifikasi</p>
+                    <p className="mt-0.5">Akun belum aktif. Buka email Anda dan klik link verifikasi atau kirim ulang di bawah.</p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs"
+                  onClick={handleResendVerification}
+                  disabled={resending}
+                >
+                  {resending ? (
+                    <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />Mengirim ulang...</>
+                  ) : (
+                    "Kirim Ulang Email Verifikasi"
+                  )}
+                </Button>
+              </div>
+            )}
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Memproses..." : "Masuk"}

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, Eye, EyeOff, Mail, Lock, User, Phone, Gift } from "lucide-react";
+import { TrendingUp, Eye, EyeOff, Mail, Lock, User, Phone, Gift, MailCheck } from "lucide-react";
+import { isAllowedEmailDomain, ALLOWED_EMAIL_DOMAINS_LABEL } from "@/lib/emailDomains";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const Register: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -28,6 +30,15 @@ const Register: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isAllowedEmailDomain(form.email)) {
+      toast({
+        title: "Domain email tidak diizinkan",
+        description: `Hanya email ${ALLOWED_EMAIL_DOMAINS_LABEL} yang dapat digunakan untuk registrasi.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (form.password !== form.confirm_password) {
       toast({ title: "Password tidak cocok", variant: "destructive" });
@@ -41,7 +52,7 @@ const Register: React.FC = () => {
 
     setLoading(true);
 
-    const { data: signUpData, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -50,7 +61,7 @@ const Register: React.FC = () => {
           phone: form.phone,
           ref_code: refCode.toUpperCase() || null,
         },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}/login?verified=1`,
       },
     });
 
@@ -60,28 +71,34 @@ const Register: React.FC = () => {
       return;
     }
 
-    const userId = signUpData?.user?.id;
-
-    if (userId) {
-      const updates: Record<string, string> = {};
-      if (form.phone) updates.phone = form.phone;
-
-      // Link referral if ref code present
-      if (refCode) {
-        const { data: referrerId } = await supabase
-          .rpc("get_referrer_id_by_code", { code: refCode.toUpperCase() });
-        if (referrerId) updates.referred_by = referrerId as string;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await supabase.from("profiles").update(updates).eq("id", userId);
-      }
-    }
-
-    toast({ title: "Registrasi berhasil!", description: "Selamat datang!" });
-    navigate("/dashboard");
+    setSuccess(true);
     setLoading(false);
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+        <div className="w-full max-w-md">
+          <div className="bg-card rounded-2xl p-8 shadow-card border border-border text-center">
+            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+              <MailCheck className="w-8 h-8 text-green-500" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Verifikasi Email Anda</h2>
+            <p className="text-sm text-muted-foreground mb-1">Kami telah mengirim link verifikasi ke:</p>
+            <p className="font-semibold text-foreground mb-4">{form.email}</p>
+            <div className="bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-5 text-left">
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                <strong>Penting:</strong> Akun belum aktif. Buka email Anda dan klik link verifikasi untuk mengaktifkan akun. Cek folder <strong>Spam/Promosi</strong> jika tidak ada di inbox.
+              </p>
+            </div>
+            <Button onClick={() => navigate("/login")} className="w-full">
+              Ke Halaman Login
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
@@ -120,8 +137,9 @@ const Register: React.FC = () => {
               <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input name="email" id="email" type="email" placeholder="email@contoh.com" value={form.email} onChange={handleChange} className="pl-10" required />
+                <Input name="email" id="email" type="email" placeholder="email@gmail.com" value={form.email} onChange={handleChange} className="pl-10" required />
               </div>
+              <p className="text-[11px] text-muted-foreground">Hanya {ALLOWED_EMAIL_DOMAINS_LABEL} yang diizinkan.</p>
             </div>
 
             <div className="space-y-2">

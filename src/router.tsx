@@ -1,18 +1,142 @@
-import Index from "./pages/Index";
+import { Navigate } from "react-router-dom";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Auth/Login";
+import Register from "./pages/Auth/Register";
+import ProtectedRoute from "./components/ProtectedRoute";
+import UserLayout from "./components/layout/UserLayout";
+import AdminLayout from "./components/layout/AdminLayout";
+
+// User pages
+import Dashboard from "./pages/User/Dashboard";
+import AdsPage from "./pages/User/AdsPage";
+import DepositPage from "./pages/User/DepositPage";
+import WithdrawPage from "./pages/User/WithdrawPage";
+import TransactionsPage from "./pages/User/TransactionsPage";
+import ProfilePage from "./pages/User/ProfilePage";
+
+// Admin pages
+import AdminDashboard from "./pages/Admin/AdminDashboard";
+import UsersPage from "./pages/Admin/UsersPage";
+import PlansPage from "./pages/Admin/PlansPage";
+import AdsManagePage from "./pages/Admin/AdsManagePage";
+import DepositsPage from "./pages/Admin/DepositsPage";
+import WithdrawalsPage from "./pages/Admin/WithdrawalsPage";
+import AdminTransactionsPage from "./pages/Admin/TransactionsPage";
 
 export const routers = [
-    {
-      path: "/",
-      name: 'home',
-      element: <Index />,
-    },
-    /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
-    {
-      path: "*",
-      name: '404',
-      element: <NotFound />,
-    },
+  { path: "/", element: <Navigate to="/dashboard" replace /> },
+  { path: "/login", element: <Login /> },
+  { path: "/register", element: <Register /> },
+
+  // User routes
+  {
+    path: "/dashboard",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><Dashboard /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/dashboard/ads",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><AdsPage /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/dashboard/deposit",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><DepositPage /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/dashboard/withdraw",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><WithdrawPage /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/dashboard/transactions",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><TransactionsPage /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/dashboard/profile",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><ProfilePage /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Admin routes
+  {
+    path: "/admin",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout><AdminDashboard /></AdminLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/users",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout><UsersPage /></AdminLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/plans",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout><PlansPage /></AdminLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/ads",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout><AdsManagePage /></AdminLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/deposits",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout><DepositsPage /></AdminLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/withdrawals",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout><WithdrawalsPage /></AdminLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/transactions",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout><AdminTransactionsPage /></AdminLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  { path: "*", element: <NotFound /> },
 ];
 
 declare global {

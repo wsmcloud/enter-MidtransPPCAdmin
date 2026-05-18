@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import {
   Wallet, MousePointerClick, TrendingUp, ArrowUpFromLine, History,
   ArrowRight, ArrowDownToLine, Clock, CheckCircle, Info,
-  Zap, Shield, Star, Users, ChevronRight
+  Zap, Shield, Star, Users, ChevronRight, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +83,7 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, [profile?.id]);
 
-  const txTypeLabel: Record<string, string> = { deposit: "Deposit", withdrawal: "Penarikan", commission: "Komisi Klik" };
+  const txTypeLabel: Record<string, string> = { deposit: "Deposit", withdrawal: "Penarikan", commission: "Komisi Klik", plan_purchase: "Beli Paket" };
   const txTypeColor = (type: string) => type === "commission" ? "text-green-600" : type === "deposit" ? "text-blue-600" : "text-amber-600";
 
   if (loading) {
@@ -264,10 +264,11 @@ const Dashboard: React.FC = () => {
               <div key={tx.id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center
-                    ${tx.type === "deposit" ? "bg-blue-500/10" : tx.type === "commission" ? "bg-green-500/10" : "bg-amber-500/10"}`}>
+                    ${tx.type === "deposit" ? "bg-blue-500/10" : tx.type === "commission" ? "bg-green-500/10" : tx.type === "plan_purchase" ? "bg-purple-500/10" : "bg-amber-500/10"}`}>
                     {tx.type === "deposit" && <ArrowDownToLine className="w-3.5 h-3.5 text-blue-500" />}
                     {tx.type === "commission" && <MousePointerClick className="w-3.5 h-3.5 text-green-500" />}
                     {tx.type === "withdrawal" && <ArrowUpFromLine className="w-3.5 h-3.5 text-amber-500" />}
+                    {tx.type === "plan_purchase" && <Package className="w-3.5 h-3.5 text-purple-500" />}
                   </div>
                   <div>
                     <p className="text-xs font-medium text-foreground">{txTypeLabel[tx.type] || tx.type}</p>

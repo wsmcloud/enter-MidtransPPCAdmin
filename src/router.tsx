@@ -13,6 +13,7 @@ import DepositPage from "./pages/User/DepositPage";
 import WithdrawPage from "./pages/User/WithdrawPage";
 import TransactionsPage from "./pages/User/TransactionsPage";
 import ProfilePage from "./pages/User/ProfilePage";
+import UserPlansPage from "./pages/User/PlansPage";
 
 // Admin pages
 import AdminDashboard from "./pages/Admin/AdminDashboard";
@@ -66,6 +67,14 @@ export const routers = [
     element: (
       <ProtectedRoute>
         <UserLayout><TransactionsPage /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/dashboard/plans",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><UserPlansPage /></UserLayout>
       </ProtectedRoute>
     ),
   },

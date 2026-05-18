@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { formatIDR, formatDate } from "@/lib/utils";
-import { History, ArrowDownToLine, ArrowUpFromLine, MousePointerClick, Clock, CheckCircle, XCircle } from "lucide-react";
+import { History, ArrowDownToLine, ArrowUpFromLine, MousePointerClick, Clock, CheckCircle, XCircle, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -62,12 +62,14 @@ const TransactionsPage: React.FC = () => {
   const typeIcon = (type: string) => {
     if (type === "deposit") return <ArrowDownToLine className="w-4 h-4 text-green-500" />;
     if (type === "withdrawal") return <ArrowUpFromLine className="w-4 h-4 text-amber-500" />;
+    if (type === "plan_purchase") return <Package className="w-4 h-4 text-purple-500" />;
     return <MousePointerClick className="w-4 h-4 text-primary" />;
   };
 
   const typeLabel = (type: string) => {
     if (type === "deposit") return "Deposit";
     if (type === "withdrawal") return "Penarikan";
+    if (type === "plan_purchase") return "Beli Paket";
     return "Komisi Klik";
   };
 
@@ -127,7 +129,7 @@ const TransactionsPage: React.FC = () => {
               <div key={tx.id} className="flex items-start justify-between px-5 py-4">
                 <div className="flex items-start gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5
-                    ${tx.type === "deposit" ? "bg-green-500/10" : tx.type === "withdrawal" ? "bg-amber-500/10" : "bg-primary/10"}`}>
+                    ${tx.type === "deposit" ? "bg-green-500/10" : tx.type === "withdrawal" ? "bg-amber-500/10" : tx.type === "plan_purchase" ? "bg-purple-500/10" : "bg-primary/10"}`}>
                     {typeIcon(tx.type)}
                   </div>
                   <div>

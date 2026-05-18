@@ -1,0 +1,5 @@
+
+-- Allow users to see profiles they referred (for referral count & join in commissions)
+CREATE POLICY "Users can see profiles they referred" ON profiles
+  FOR SELECT TO authenticated
+  USING (referred_by = auth.uid());

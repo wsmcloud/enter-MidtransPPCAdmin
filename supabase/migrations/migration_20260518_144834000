@@ -1,0 +1,9 @@
+
+-- Add duration_days to plans (0 = unlimited/no expiry)
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration_days INTEGER NOT NULL DEFAULT 30;
+
+-- Add plan_expires_at to profiles
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
+
+-- Set Free plan to unlimited
+UPDATE plans SET duration_days = 0 WHERE LOWER(name) = 'free';

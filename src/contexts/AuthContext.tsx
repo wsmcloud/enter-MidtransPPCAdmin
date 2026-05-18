@@ -13,6 +13,7 @@ interface Profile {
   referral_code: string | null;
   referred_by: string | null;
   plan_id: string | null;
+  plan_expires_at: string | null;
   is_active: boolean;
   created_at: string;
 }

@@ -3216,6 +3216,7 @@ export type Database = {
           created_at: string | null
           daily_clicks_limit: number
           description: string | null
+          duration_days: number
           id: string
           is_active: boolean | null
           name: string
@@ -3226,6 +3227,7 @@ export type Database = {
           created_at?: string | null
           daily_clicks_limit?: number
           description?: string | null
+          duration_days?: number
           id?: string
           is_active?: boolean | null
           name: string
@@ -3236,6 +3238,7 @@ export type Database = {
           created_at?: string | null
           daily_clicks_limit?: number
           description?: string | null
+          duration_days?: number
           id?: string
           is_active?: boolean | null
           name?: string
@@ -3253,6 +3256,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           phone: string | null
+          plan_expires_at: string | null
           plan_id: string | null
           referral_code: string | null
           referred_by: string | null
@@ -3268,6 +3272,7 @@ export type Database = {
           id: string
           is_active?: boolean | null
           phone?: string | null
+          plan_expires_at?: string | null
           plan_id?: string | null
           referral_code?: string | null
           referred_by?: string | null
@@ -3283,6 +3288,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           phone?: string | null
+          plan_expires_at?: string | null
           plan_id?: string | null
           referral_code?: string | null
           referred_by?: string | null

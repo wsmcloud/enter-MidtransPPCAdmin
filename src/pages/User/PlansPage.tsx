@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
   Package, CheckCircle, Zap, MousePointerClick,
-  ArrowDownToLine, Crown, Star, Loader2, AlertCircle
+  ArrowDownToLine, Crown, Star, Loader2, AlertCircle, CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ interface Plan {
   price: number;
   daily_clicks_limit: number;
   commission_per_click: number;
+  duration_days: number;
   description: string | null;
   is_active: boolean;
 }
@@ -84,12 +85,17 @@ const UserPlansPage: React.FC = () => {
     setBuying(confirmPlan.id);
 
     try {
+      // Calculate expiry date based on plan duration
+      const expiresAt = confirmPlan.duration_days > 0
+        ? new Date(Date.now() + confirmPlan.duration_days * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
       // 1. Deduct balance (only if price > 0)
       if (confirmPlan.price > 0) {
         const newBalance = (profile.balance || 0) - confirmPlan.price;
         const { error: balErr } = await supabase
           .from("profiles")
-          .update({ balance: newBalance, plan_id: confirmPlan.id })
+          .update({ balance: newBalance, plan_id: confirmPlan.id, plan_expires_at: expiresAt })
           .eq("id", profile.id);
         if (balErr) throw balErr;
 
@@ -99,14 +105,14 @@ const UserPlansPage: React.FC = () => {
           type: "plan_purchase",
           amount: confirmPlan.price,
           status: "success",
-          notes: `Pembelian paket ${confirmPlan.name}`,
+          notes: `Pembelian paket ${confirmPlan.name}${confirmPlan.duration_days > 0 ? ` (${confirmPlan.duration_days} hari)` : ""}`,
         });
         if (txErr) throw txErr;
       } else {
         // Free plan - just update plan_id
         const { error } = await supabase
           .from("profiles")
-          .update({ plan_id: confirmPlan.id })
+          .update({ plan_id: confirmPlan.id, plan_expires_at: expiresAt })
           .eq("id", profile.id);
         if (error) throw error;
       }
@@ -166,13 +172,19 @@ const UserPlansPage: React.FC = () => {
       {currentPlanId && (
         <div className="bg-green-500/10 border border-green-200 dark:border-green-800 rounded-xl p-4 flex items-center gap-3">
           <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-medium text-green-700 dark:text-green-400">
               Paket aktif: <span className="font-bold">{plans.find(p => p.id === currentPlanId)?.name || "–"}</span>
             </p>
             <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
               {plans.find(p => p.id === currentPlanId)?.daily_clicks_limit} klik/hari · komisi {formatIDR(plans.find(p => p.id === currentPlanId)?.commission_per_click || 0)}/klik
             </p>
+            {profile?.plan_expires_at && (
+              <p className="text-xs text-green-600 dark:text-green-500 mt-0.5 flex items-center gap-1">
+                <CalendarDays className="w-3 h-3" />
+                Berakhir: {new Date(profile.plan_expires_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -213,6 +225,9 @@ const UserPlansPage: React.FC = () => {
                     <p className="text-2xl font-bold text-foreground mt-1">
                       {isFree ? <span className="text-green-500">Gratis</span> : formatIDR(plan.price)}
                     </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {plan.duration_days > 0 ? `Aktif ${plan.duration_days} hari` : "Tanpa batas waktu"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -231,6 +246,15 @@ const UserPlansPage: React.FC = () => {
                   <div>
                     <p className="text-xs font-semibold text-foreground">{formatIDR(plan.commission_per_click)}/klik</p>
                     <p className="text-[10px] text-muted-foreground">Komisi per klik</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 bg-background/60 rounded-lg p-2 col-span-2">
+                  <CalendarDays className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">
+                      {plan.duration_days > 0 ? `${plan.duration_days} hari masa aktif` : "Selamanya"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Durasi sewa paket</p>
                   </div>
                 </div>
               </div>

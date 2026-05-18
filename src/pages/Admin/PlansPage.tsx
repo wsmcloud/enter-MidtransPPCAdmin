@@ -17,11 +17,12 @@ interface Plan {
   price: number;
   daily_clicks_limit: number;
   commission_per_click: number;
+  duration_days: number;
   description: string | null;
   is_active: boolean;
 }
 
-const emptyForm = { name: "", price: 0, daily_clicks_limit: 10, commission_per_click: 500, description: "", is_active: true };
+const emptyForm = { name: "", price: 0, daily_clicks_limit: 10, commission_per_click: 500, duration_days: 30, description: "", is_active: true };
 
 const PlansPage: React.FC = () => {
   const { toast } = useToast();
@@ -50,7 +51,7 @@ const PlansPage: React.FC = () => {
 
   const openEdit = (plan: Plan) => {
     setEditPlan(plan);
-    setForm({ name: plan.name, price: plan.price, daily_clicks_limit: plan.daily_clicks_limit, commission_per_click: plan.commission_per_click, description: plan.description || "", is_active: plan.is_active });
+    setForm({ name: plan.name, price: plan.price, daily_clicks_limit: plan.daily_clicks_limit, commission_per_click: plan.commission_per_click, duration_days: plan.duration_days || 30, description: plan.description || "", is_active: plan.is_active });
     setDialogOpen(true);
   };
 
@@ -108,9 +109,19 @@ const PlansPage: React.FC = () => {
               </div>
 
               <p className="text-2xl font-bold text-foreground mb-1">{plan.price === 0 ? "Gratis" : formatIDR(plan.price)}</p>
-              {plan.price > 0 && <p className="text-xs text-muted-foreground mb-3">per bulan</p>}
+              {plan.price > 0 && (
+                <p className="text-xs text-muted-foreground mb-3">
+                  {plan.duration_days > 0 ? `untuk ${plan.duration_days} hari` : "tanpa batas waktu"}
+                </p>
+              )}
 
               <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Durasi aktif</span>
+                  <span className="font-medium text-foreground">
+                    {plan.duration_days > 0 ? `${plan.duration_days} hari` : "Selamanya"}
+                  </span>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Klik per hari</span>
                   <span className="font-medium text-foreground">{plan.daily_clicks_limit}x</span>
@@ -164,6 +175,17 @@ const PlansPage: React.FC = () => {
                 <Label>Komisi/Klik (IDR)</Label>
                 <Input type="number" value={form.commission_per_click} onChange={e => setForm({ ...form, commission_per_click: parseInt(e.target.value) || 0 })} />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Durasi Sewa Paket (hari)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={form.duration_days}
+                onChange={e => setForm({ ...form, duration_days: parseInt(e.target.value) || 0 })}
+                placeholder="30"
+              />
+              <p className="text-xs text-muted-foreground">Isi 0 untuk paket tanpa batas waktu (selamanya).</p>
             </div>
             <div className="space-y-2">
               <Label>Deskripsi</Label>

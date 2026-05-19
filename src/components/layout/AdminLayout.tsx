@@ -43,7 +43,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <TrendingUp className="w-4 h-4 text-white" />
           </div>
           <div>
-            <span className="font-bold text-lg text-sidebar-foreground">PPC Ads</span>
+            <span className="font-bold text-lg text-sidebar-foreground">IKLAN CUAN</span>
             <div className="flex items-center gap-1 mt-0.5">
               <Shield className="w-2.5 h-2.5 text-primary" />
               <span className="text-[10px] text-primary font-medium uppercase tracking-wider">Admin</span>

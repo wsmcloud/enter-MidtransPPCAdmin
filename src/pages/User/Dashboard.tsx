@@ -106,7 +106,7 @@ const Dashboard: React.FC = () => {
         <h2 className="text-2xl font-bold text-foreground">
           Hai, {profile?.full_name?.split(" ")[0] || "Member"}!
         </h2>
-        <p className="text-muted-foreground text-sm mt-0.5">Pantau penghasilan dan aktivitas PPC Anda.</p>
+        <p className="text-muted-foreground text-sm mt-0.5">Pantau penghasilan dan aktivitas IKLAN CUAN Anda.</p>
       </div>
 
       {/* Pending Deposit Alert */}
@@ -183,15 +183,15 @@ const Dashboard: React.FC = () => {
         })}
       </div>
 
-      {/* Tentang PPC */}
+      {/* Tentang IKLAN CUAN */}
       <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
         <div className="gradient-primary p-5">
           <div className="flex items-center gap-2 mb-2">
             <Info className="w-4 h-4 text-white/80" />
-            <span className="text-xs font-medium text-white/80 uppercase tracking-wider">Tentang Platform PPC</span>
+            <span className="text-xs font-medium text-white/80 uppercase tracking-wider">Tentang IKLAN CUAN</span>
           </div>
           <h3 className="text-lg font-bold text-white">Hasilkan Uang dengan Klik Iklan</h3>
-          <p className="text-sm text-white/80 mt-1">Platform Pay-Per-Click (PPC) terpercaya. Klik iklan dan dapatkan komisi langsung ke saldo Anda.</p>
+          <p className="text-sm text-white/80 mt-1">Platform iklan terpercaya. Klik iklan dan dapatkan komisi langsung ke saldo Anda.</p>
         </div>
 
         <div className="p-5 grid grid-cols-2 gap-4">
@@ -216,7 +216,7 @@ const Dashboard: React.FC = () => {
 
         <div className="px-5 pb-5">
           <div className="bg-muted rounded-xl p-4">
-            <p className="text-xs font-semibold text-foreground mb-3">Cara Kerja PPC:</p>
+            <p className="text-xs font-semibold text-foreground mb-3">Cara Kerja IKLAN CUAN:</p>
             {[
               "Deposit saldo ke akun Anda",
               "Pilih paket sesuai kebutuhan",

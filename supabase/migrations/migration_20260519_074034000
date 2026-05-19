@@ -1,0 +1,94 @@
+
+-- Create user_plans table for multi-plan support
+CREATE TABLE IF NOT EXISTS public.user_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  plan_id UUID NOT NULL REFERENCES public.plans(id) ON DELETE CASCADE,
+  purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,  -- NULL = unlimited (free plan)
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_plans_user_id ON public.user_plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_plans_active ON public.user_plans(user_id, is_active);
+
+ALTER TABLE public.user_plans ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies
+DROP POLICY IF EXISTS "Users view own plans" ON public.user_plans;
+CREATE POLICY "Users view own plans" ON public.user_plans
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid() OR is_admin());
+
+DROP POLICY IF EXISTS "Users insert own plans" ON public.user_plans;
+CREATE POLICY "Users insert own plans" ON public.user_plans
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid() OR is_admin());
+
+DROP POLICY IF EXISTS "Admin update plans" ON public.user_plans;
+CREATE POLICY "Admin update plans" ON public.user_plans
+  FOR UPDATE TO authenticated
+  USING (is_admin())
+  WITH CHECK (is_admin());
+
+-- Backfill: migrate existing profiles.plan_id -> user_plans rows
+INSERT INTO public.user_plans (user_id, plan_id, purchased_at, expires_at, is_active)
+SELECT
+  p.id,
+  p.plan_id,
+  COALESCE(p.created_at, NOW()),
+  p.plan_expires_at,
+  TRUE
+FROM public.profiles p
+WHERE p.plan_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM public.user_plans up WHERE up.user_id = p.id AND up.plan_id = p.plan_id);
+
+-- Update trigger: when new user signs up, create user_plans row for Free plan
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_referrer_id UUID;
+  v_ref_code TEXT;
+  v_free_plan_id UUID;
+BEGIN
+  v_ref_code := NEW.raw_user_meta_data->>'ref_code';
+
+  IF v_ref_code IS NOT NULL AND v_ref_code != '' THEN
+    SELECT id INTO v_referrer_id
+    FROM public.profiles
+    WHERE referral_code = UPPER(v_ref_code)
+    LIMIT 1;
+  END IF;
+
+  SELECT id INTO v_free_plan_id
+  FROM public.plans
+  WHERE LOWER(name) = 'free'
+  LIMIT 1;
+
+  INSERT INTO public.profiles (id, full_name, email, phone, role, referral_code, referred_by, plan_id, is_active)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    NEW.email,
+    NEW.raw_user_meta_data->>'phone',
+    'user',
+    generate_referral_code(),
+    v_referrer_id,
+    v_free_plan_id,
+    TRUE
+  ) ON CONFLICT (id) DO NOTHING;
+
+  -- Add free plan to user_plans (NULL expiry = unlimited)
+  IF v_free_plan_id IS NOT NULL THEN
+    INSERT INTO public.user_plans (user_id, plan_id, expires_at, is_active)
+    VALUES (NEW.id, v_free_plan_id, NULL, TRUE)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE LOG 'Error in handle_new_user: %', SQLERRM;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

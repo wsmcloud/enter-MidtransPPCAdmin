@@ -61,12 +61,15 @@ const AdsPage: React.FC = () => {
     if (!profile) return;
     const today = new Date().toISOString().split("T")[0];
 
-    const [adsRes, clicksRes, planRes] = await Promise.all([
+    const [adsRes, clicksRes, userPlansRes] = await Promise.all([
       supabase.from("ads").select("*").eq("status", "active"),
       supabase.from("ad_clicks").select("ad_id").eq("user_id", profile.id).gte("clicked_at", today),
-      profile.plan_id
-        ? supabase.from("plans").select("daily_clicks_limit, commission_per_click").eq("id", profile.plan_id).maybeSingle()
-        : supabase.from("plans").select("daily_clicks_limit, commission_per_click").eq("name", "Free").maybeSingle(),
+      supabase
+        .from("user_plans")
+        .select("plan:plans(daily_clicks_limit, commission_per_click)")
+        .eq("user_id", profile.id)
+        .eq("is_active", true)
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
     ]);
 
     const clickedAdIds = new Set(clicksRes.data?.map(c => c.ad_id) || []);
@@ -75,8 +78,17 @@ const AdsPage: React.FC = () => {
       clicked_today: clickedAdIds.has(ad.id),
     }));
 
+    // Sum limits and take max commission from all active plans
+    type UserPlanRow = { plan: { daily_clicks_limit: number; commission_per_click: number } | null };
+    const userPlansData = (userPlansRes.data as UserPlanRow[]) || [];
+    const totalLimit = userPlansData.reduce((sum, up) => sum + (up.plan?.daily_clicks_limit || 0), 0);
+    const maxCommission = Math.max(0, ...userPlansData.map(up => up.plan?.commission_per_click || 0));
+
     setAds(adsWithStatus);
-    setPlan(planRes.data || { daily_clicks_limit: 5, commission_per_click: 200 });
+    setPlan({
+      daily_clicks_limit: totalLimit || 5,
+      commission_per_click: maxCommission || 200,
+    });
     setTodayClicks(clicksRes.data?.length || 0);
     setLoading(false);
   };

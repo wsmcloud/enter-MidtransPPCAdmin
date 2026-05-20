@@ -250,7 +250,7 @@ const UserPlansPage: React.FC = () => {
                 >
                   {ownedCount > 0 && (
                     <Badge className="absolute top-3 right-3 bg-green-500/10 text-green-600 border-green-200 text-[10px]">
-                      {ownedCount}x dimiliki
+                      <CheckCircle className="w-2.5 h-2.5 mr-1" />Aktif
                     </Badge>
                   )}
 
@@ -285,11 +285,11 @@ const UserPlansPage: React.FC = () => {
                     className="w-full"
                     size="sm"
                     onClick={() => setConfirmPlan(plan)}
-                    disabled={isFree && ownedCount > 0}
-                    variant={isFree ? "outline" : "default"}
+                    disabled={ownedCount > 0}
+                    variant={ownedCount > 0 ? "outline" : "default"}
                   >
-                    {isFree && ownedCount > 0 ? (
-                      <>Sudah Aktif</>
+                    {ownedCount > 0 ? (
+                      <><CheckCircle className="w-3.5 h-3.5 mr-1" />Sudah Dimiliki</>
                     ) : isFree ? (
                       <>Aktifkan Gratis</>
                     ) : (

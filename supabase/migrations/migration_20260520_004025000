@@ -1,0 +1,17 @@
+
+-- Deactivate duplicates first (keep oldest active row per user_id+plan_id)
+WITH ranked AS (
+  SELECT id,
+    ROW_NUMBER() OVER (PARTITION BY user_id, plan_id ORDER BY purchased_at ASC) AS rn
+  FROM public.user_plans
+  WHERE is_active = TRUE
+)
+UPDATE public.user_plans up
+SET is_active = FALSE
+FROM ranked r
+WHERE up.id = r.id AND r.rn > 1;
+
+-- Now safely create the unique constraint
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_plan_active
+  ON public.user_plans (user_id, plan_id)
+  WHERE is_active = TRUE;

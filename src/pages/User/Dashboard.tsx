@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { formatIDR, formatDate } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import {
-  Wallet, MousePointerClick, TrendingUp, ArrowUpFromLine, History,
+  Wallet, MousePointerClick, TrendingUp, ArrowUpFromLine, History, Gift,
   ArrowRight, ArrowDownToLine, Clock, CheckCircle, Info,
   Zap, Shield, Star, Users, ChevronRight, Package
 } from "lucide-react";
@@ -167,7 +167,7 @@ const Dashboard: React.FC = () => {
         {[
           { to: "/dashboard/ads", icon: MousePointerClick, label: "Klik Iklan", color: "text-primary", bg: "bg-primary/10" },
           { to: "/dashboard/deposit", icon: ArrowDownToLine, label: "Deposit", color: "text-green-500", bg: "bg-green-500/10" },
-          { to: "/dashboard/transactions", icon: History, label: "Riwayat", color: "text-purple-500", bg: "bg-purple-500/10" },
+          { to: "/dashboard/referral", icon: Gift, label: "Referral", color: "text-purple-500", bg: "bg-purple-500/10" },
         ].map(item => {
           const Icon = item.icon;
           return (

@@ -23,15 +23,22 @@ interface Ad {
   total_budget: number;
   spent_budget: number;
   view_duration: number;
+  plan_id: string | null;
   status: "active" | "paused" | "ended";
   created_at: string;
 }
 
-const emptyForm = { title: "", description: "", url: "", image_url: "", cpc_rate: 500, daily_budget: 100000, total_budget: 1000000, view_duration: 30, status: "active" as const };
+interface PlanOption {
+  id: string;
+  name: string;
+}
+
+const emptyForm = { title: "", description: "", url: "", image_url: "", cpc_rate: 500, daily_budget: 100000, total_budget: 1000000, view_duration: 30, plan_id: "", status: "active" as const };
 
 const AdsManagePage: React.FC = () => {
   const { toast } = useToast();
   const [ads, setAds] = useState<Ad[]>([]);
+  const [plans, setPlans] = useState<PlanOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editAd, setEditAd] = useState<Ad | null>(null);
@@ -41,8 +48,12 @@ const AdsManagePage: React.FC = () => {
 
   const fetchAds = async () => {
     setLoading(true);
-    const { data } = await supabase.from("ads").select("*").order("created_at", { ascending: false });
-    setAds(data || []);
+    const [adsRes, plansRes] = await Promise.all([
+      supabase.from("ads").select("*").order("created_at", { ascending: false }),
+      supabase.from("plans").select("id, name").eq("is_active", true).order("price"),
+    ]);
+    setAds(adsRes.data || []);
+    setPlans(plansRes.data || []);
     setLoading(false);
   };
 
@@ -51,14 +62,15 @@ const AdsManagePage: React.FC = () => {
   const openCreate = () => { setEditAd(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (ad: Ad) => {
     setEditAd(ad);
-    setForm({ title: ad.title, description: ad.description || "", url: ad.url, image_url: ad.image_url || "", cpc_rate: ad.cpc_rate, daily_budget: ad.daily_budget, total_budget: ad.total_budget, view_duration: ad.view_duration || 30, status: ad.status });
+    setForm({ title: ad.title, description: ad.description || "", url: ad.url, image_url: ad.image_url || "", cpc_rate: ad.cpc_rate, daily_budget: ad.daily_budget, total_budget: ad.total_budget, view_duration: ad.view_duration || 30, plan_id: ad.plan_id || "", status: ad.status });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.title || !form.url) { toast({ title: "Judul dan URL wajib diisi", variant: "destructive" }); return; }
+    if (!form.plan_id) { toast({ title: "Pilih paket untuk iklan ini", variant: "destructive" }); return; }
     setSaveLoading(true);
-    const payload = { ...form, image_url: form.image_url || null, description: form.description || null };
+    const payload = { ...form, image_url: form.image_url || null, description: form.description || null, plan_id: form.plan_id || null };
 
     if (editAd) {
       const { error } = await supabase.from("ads").update(payload).eq("id", editAd.id);
@@ -110,6 +122,7 @@ const AdsManagePage: React.FC = () => {
               <tr className="border-b border-border bg-muted/40">
                 <th className="text-left px-5 py-3 font-semibold text-muted-foreground">Iklan</th>
                 <th className="text-right px-5 py-3 font-semibold text-muted-foreground">CPC</th>
+                <th className="text-center px-5 py-3 font-semibold text-muted-foreground">Paket</th>
                 <th className="text-center px-5 py-3 font-semibold text-muted-foreground">Timer</th>
                 <th className="text-right px-5 py-3 font-semibold text-muted-foreground">Budget</th>
                 <th className="text-right px-5 py-3 font-semibold text-muted-foreground">Terpakai</th>
@@ -120,9 +133,9 @@ const AdsManagePage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
-                [...Array(4)].map((_, i) => <tr key={i}><td colSpan={8} className="px-5 py-4"><div className="h-4 bg-muted rounded animate-pulse" /></td></tr>)
+                [...Array(4)].map((_, i) => <tr key={i}><td colSpan={9} className="px-5 py-4"><div className="h-4 bg-muted rounded animate-pulse" /></td></tr>)
               ) : ads.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-10 text-center text-muted-foreground">Belum ada iklan</td></tr>
+                <tr><td colSpan={9} className="px-5 py-10 text-center text-muted-foreground">Belum ada iklan</td></tr>
               ) : (
                 ads.map(ad => (
                   <tr key={ad.id} className="hover:bg-muted/30 transition-colors">
@@ -142,6 +155,11 @@ const AdsManagePage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-right font-medium text-green-600">{formatIDR(ad.cpc_rate)}</td>
+                    <td className="px-5 py-4 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
+                        {plans.find(p => p.id === ad.plan_id)?.name || "—"}
+                      </span>
+                    </td>
                     <td className="px-5 py-4 text-center">
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
                         <Timer className="w-3 h-3 text-primary" />{ad.view_duration || 30}s
@@ -181,6 +199,16 @@ const AdsManagePage: React.FC = () => {
             <div className="space-y-2"><Label>URL Tujuan</Label><Input value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} placeholder="https://..." /></div>
             <div className="space-y-2"><Label>URL Gambar (opsional)</Label><Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." /></div>
             <div className="space-y-2"><Label>Deskripsi</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} /></div>
+            <div className="space-y-2">
+              <Label>Paket / Kategori Iklan</Label>
+              <Select value={form.plan_id} onValueChange={v => setForm({ ...form, plan_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Pilih paket..." /></SelectTrigger>
+                <SelectContent>
+                  {plans.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Iklan ini hanya muncul untuk user yang punya paket ini.</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2"><Label>CPC Rate (IDR)</Label><Input type="number" value={form.cpc_rate} onChange={e => setForm({ ...form, cpc_rate: parseInt(e.target.value) || 0 })} /></div>
               <div className="space-y-2">

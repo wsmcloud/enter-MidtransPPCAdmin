@@ -3156,6 +3156,7 @@ export type Database = {
           external_id: string | null
           id: string
           image_url: string | null
+          plan_id: string | null
           source: string
           spent_budget: number
           status: string
@@ -3174,6 +3175,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           image_url?: string | null
+          plan_id?: string | null
           source?: string
           spent_budget?: number
           status?: string
@@ -3192,6 +3194,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           image_url?: string | null
+          plan_id?: string | null
           source?: string
           spent_budget?: number
           status?: string
@@ -3206,6 +3209,12 @@ export type Database = {
             foreignKeyName: "ads_created_by_fkey"
             columns: ["created_by"]
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_plan_id_fkey"
+            columns: ["plan_id"]
+            referencedRelation: "plans"
             referencedColumns: ["id"]
           },
         ]

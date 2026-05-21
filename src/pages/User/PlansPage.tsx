@@ -10,8 +10,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import {
-  Package, CheckCircle, Zap, MousePointerClick,
-  ArrowDownToLine, Crown, Star, Loader2, AlertCircle, CalendarDays, Plus, Sparkles
+  CheckCircle,
+  ArrowDownToLine, Loader2, AlertCircle, CalendarDays, Sparkles
 } from "lucide-react";
 
 interface Plan {
@@ -138,13 +138,6 @@ const UserPlansPage: React.FC = () => {
     }
   };
 
-  const getPlanIcon = (name: string) => {
-    const lower = name.toLowerCase();
-    if (lower.includes("free")) return Star;
-    if (lower.includes("premium") || lower.includes("vip")) return Crown;
-    return Zap;
-  };
-
   const getDaysRemaining = (expiresAt: string | null) => {
     if (!expiresAt) return null;
     const diff = new Date(expiresAt).getTime() - Date.now();
@@ -228,7 +221,7 @@ const UserPlansPage: React.FC = () => {
         </div>
       )}
 
-      {/* Available plans to purchase */}
+      {/* Available plans to purchase — FLAT LIST */}
       <div>
         <h3 className="text-sm font-semibold text-foreground mb-3">Beli Paket Tambahan</h3>
         {plans.length === 0 ? (
@@ -237,65 +230,50 @@ const UserPlansPage: React.FC = () => {
             <p className="text-muted-foreground text-sm">Belum ada paket tersedia</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
             {plans.map(plan => {
-              const Icon = getPlanIcon(plan.name);
               const isFree = plan.price === 0;
               const ownedCount = activeUserPlans.filter(up => up.plan_id === plan.id).length;
 
               return (
                 <div
                   key={plan.id}
-                  className="relative bg-card rounded-2xl p-5 border border-border shadow-card hover:shadow-elevated transition-all hover:-translate-y-0.5"
+                  className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors"
                 >
-                  {ownedCount > 0 && (
-                    <Badge className="absolute top-3 right-3 bg-green-500/10 text-green-600 border-green-200 text-[10px]">
-                      <CheckCircle className="w-2.5 h-2.5 mr-1" />Aktif
-                    </Badge>
-                  )}
-
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-white" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-foreground text-sm">{plan.name}</span>
+                      {ownedCount > 0 && (
+                        <Badge className="bg-green-500/10 text-green-600 border-green-200 text-[10px] h-4 px-1.5">
+                          Aktif
+                        </Badge>
+                      )}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-foreground">{plan.name}</h4>
-                      <p className="text-lg font-bold text-foreground">
-                        {isFree ? <span className="text-green-500">Gratis</span> : formatIDR(plan.price)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 mb-4 text-xs">
-                    <div className="flex items-center gap-1.5 text-foreground">
-                      <MousePointerClick className="w-3.5 h-3.5 text-primary" />
-                      <span><strong>{plan.daily_clicks_limit}</strong> klik/hari</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-foreground">
-                      <Zap className="w-3.5 h-3.5 text-amber-500" />
-                      <span><strong>{formatIDR(plan.commission_per_click)}</strong>/klik</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-foreground">
-                      <CalendarDays className="w-3.5 h-3.5 text-blue-500" />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                      <span><strong className="text-foreground">{plan.daily_clicks_limit}</strong> iklan/hari</span>
+                      <span>·</span>
+                      <span><strong className="text-green-600">{formatIDR(plan.commission_per_click)}</strong>/klik</span>
+                      <span>·</span>
                       <span>{plan.duration_days > 0 ? `${plan.duration_days} hari` : "Selamanya"}</span>
                     </div>
                   </div>
 
-                  <Button
-                    className="w-full"
-                    size="sm"
-                    onClick={() => setConfirmPlan(plan)}
-                    disabled={ownedCount > 0}
-                    variant={ownedCount > 0 ? "outline" : "default"}
-                  >
-                    {ownedCount > 0 ? (
-                      <><CheckCircle className="w-3.5 h-3.5 mr-1" />Sudah Dimiliki</>
-                    ) : isFree ? (
-                      <>Aktifkan Gratis</>
-                    ) : (
-                      <><Plus className="w-3.5 h-3.5 mr-1" />Beli Paket</>
-                    )}
-                  </Button>
+                  <div className="text-right shrink-0 flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="font-bold text-sm text-foreground leading-tight">
+                        {isFree ? <span className="text-green-500">Gratis</span> : formatIDR(plan.price)}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-8 text-[11px] px-3"
+                      onClick={() => setConfirmPlan(plan)}
+                      disabled={ownedCount > 0}
+                      variant={ownedCount > 0 ? "outline" : "default"}
+                    >
+                      {ownedCount > 0 ? "Dimiliki" : isFree ? "Aktifkan" : "Beli"}
+                    </Button>
+                  </div>
                 </div>
               );
             })}

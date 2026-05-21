@@ -1,0 +1,10 @@
+
+-- Add plan_id to ads (each ad belongs to one plan tier)
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS plan_id UUID REFERENCES plans(id) ON DELETE CASCADE;
+
+-- Backfill existing ads to Free plan
+UPDATE ads
+SET plan_id = (SELECT id FROM plans WHERE LOWER(name) = 'free' LIMIT 1)
+WHERE plan_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_ads_plan_id ON ads(plan_id);

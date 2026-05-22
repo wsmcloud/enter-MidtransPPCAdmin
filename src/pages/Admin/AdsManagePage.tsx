@@ -175,8 +175,8 @@ const AdsManagePage: React.FC = () => {
 
     // 2. Create N new ads
     const rows = Array.from({ length: config.ad_count }, (_, i) => ({
-      title: `Monetag ${plan.name} #${i + 1}`,
-      description: `Iklan otomatis Monetag untuk paket ${plan.name}`,
+      title: `Iklan ${plan.name} #${i + 1}`,
+      description: `Iklan otomatis untuk paket ${plan.name}`,
       url: config.smart_link,
       image_url: null,
       cpc_rate: plan.commission_per_click,

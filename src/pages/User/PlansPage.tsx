@@ -10,8 +10,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import {
-  CheckCircle,
-  ArrowDownToLine, Loader2, AlertCircle, CalendarDays, Sparkles
+  CheckCircle, ArrowDownToLine, Loader2, AlertCircle,
+  CalendarDays, Sparkles, MousePointerClick, Zap, Star, Crown, Gem, Flame, Clock
 } from "lucide-react";
 
 interface Plan {
@@ -34,6 +34,50 @@ interface UserPlan {
   plan: Plan;
 }
 
+const PLAN_THEMES = [
+  {
+    gradient: "linear-gradient(135deg, #64748b 0%, #475569 100%)",
+    light: "rgba(100,116,139,0.08)",
+    border: "rgba(100,116,139,0.25)",
+    accent: "#64748b",
+    icon: Star,
+    label: "Pemula",
+  },
+  {
+    gradient: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+    light: "rgba(59,130,246,0.08)",
+    border: "rgba(59,130,246,0.25)",
+    accent: "#3b82f6",
+    icon: Zap,
+    label: "Populer",
+  },
+  {
+    gradient: "linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)",
+    light: "rgba(20,184,166,0.08)",
+    border: "rgba(20,184,166,0.25)",
+    accent: "#14b8a6",
+    icon: Gem,
+    label: "Standar",
+  },
+  {
+    gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+    light: "rgba(245,158,11,0.08)",
+    border: "rgba(245,158,11,0.25)",
+    accent: "#f59e0b",
+    icon: Crown,
+    label: "Premium",
+  },
+  {
+    gradient: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
+    light: "rgba(139,92,246,0.08)",
+    border: "rgba(139,92,246,0.25)",
+    accent: "#8b5cf6",
+    icon: Flame,
+    label: "VIP",
+  },
+];
+const getTheme = (i: number) => PLAN_THEMES[Math.min(i, PLAN_THEMES.length - 1)];
+
 const UserPlansPage: React.FC = () => {
   const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
@@ -43,28 +87,17 @@ const UserPlansPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [confirmPlan, setConfirmPlan] = useState<Plan | null>(null);
+  const [confirmIdx, setConfirmIdx] = useState(0);
 
   const ensureFreePlan = async (currentPlans: Plan[]) => {
     if (!profile) return false;
     const freePlan = currentPlans.find(p => p.name.toLowerCase() === "free");
     if (!freePlan) return false;
-
     const { data: existing } = await supabase
-      .from("user_plans")
-      .select("id")
-      .eq("user_id", profile.id)
-      .eq("plan_id", freePlan.id)
-      .eq("is_active", true)
-      .maybeSingle();
-
+      .from("user_plans").select("id")
+      .eq("user_id", profile.id).eq("plan_id", freePlan.id).eq("is_active", true).maybeSingle();
     if (existing) return false;
-
-    await supabase.from("user_plans").insert({
-      user_id: profile.id,
-      plan_id: freePlan.id,
-      expires_at: null,
-      is_active: true,
-    });
+    await supabase.from("user_plans").insert({ user_id: profile.id, plan_id: freePlan.id, expires_at: null, is_active: true });
     return true;
   };
 
@@ -73,11 +106,8 @@ const UserPlansPage: React.FC = () => {
     const [plansRes, userPlansRes] = await Promise.all([
       supabase.from("plans").select("*").eq("is_active", true).order("price"),
       profile
-        ? supabase
-            .from("user_plans")
-            .select("*, plan:plans(*)")
-            .eq("user_id", profile.id)
-            .eq("is_active", true)
+        ? supabase.from("user_plans").select("*, plan:plans(*)")
+            .eq("user_id", profile.id).eq("is_active", true)
             .order("purchased_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
     ]);
@@ -85,18 +115,14 @@ const UserPlansPage: React.FC = () => {
     const allPlans = plansRes.data || [];
     let myPlans = (userPlansRes.data as UserPlan[]) || [];
 
-    // Ensure Free plan always present in user_plans
     const freePlan = allPlans.find(p => p.name.toLowerCase() === "free");
     if (freePlan && profile) {
       const hasFree = myPlans.some(up => up.plan_id === freePlan.id);
       if (!hasFree) {
         const inserted = await ensureFreePlan(allPlans);
         if (inserted) {
-          const refetch = await supabase
-            .from("user_plans")
-            .select("*, plan:plans(*)")
-            .eq("user_id", profile.id)
-            .eq("is_active", true)
+          const refetch = await supabase.from("user_plans").select("*, plan:plans(*)")
+            .eq("user_id", profile.id).eq("is_active", true)
             .order("purchased_at", { ascending: false });
           myPlans = (refetch.data as UserPlan[]) || myPlans;
         }
@@ -110,77 +136,42 @@ const UserPlansPage: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [profile?.id]);
 
-  // Filter active (non-expired) user plans
   const now = new Date();
-  const activeUserPlans = userPlans.filter(up =>
-    up.is_active && (!up.expires_at || new Date(up.expires_at) > now)
-  );
-
-  // Total daily clicks and commission from all active plans
+  const activeUserPlans = userPlans.filter(up => up.is_active && (!up.expires_at || new Date(up.expires_at) > now));
   const totalDailyClicks = activeUserPlans.reduce((sum, up) => sum + (up.plan?.daily_clicks_limit || 0), 0);
   const maxCommission = Math.max(0, ...activeUserPlans.map(up => up.plan?.commission_per_click || 0));
+
+  const openConfirm = (plan: Plan, idx: number) => { setConfirmPlan(plan); setConfirmIdx(idx); };
 
   const handlePurchase = async () => {
     if (!confirmPlan || !profile) return;
     setPurchasing(true);
-
     try {
-      // Check balance
       if (confirmPlan.price > 0 && (profile.balance || 0) < confirmPlan.price) {
-        toast({
-          title: "Saldo tidak cukup",
-          description: "Silakan top up terlebih dahulu.",
-          variant: "destructive",
-        });
-        setConfirmPlan(null);
-        setPurchasing(false);
-        navigate("/dashboard/deposit");
-        return;
+        toast({ title: "Saldo tidak cukup", description: "Silakan top up terlebih dahulu.", variant: "destructive" });
+        setConfirmPlan(null); setPurchasing(false); navigate("/dashboard/deposit"); return;
       }
-
       const expiresAt = confirmPlan.duration_days > 0
-        ? new Date(Date.now() + confirmPlan.duration_days * 24 * 60 * 60 * 1000).toISOString()
-        : null;
-
-      // 1. Insert into user_plans (additive, doesn't replace others)
+        ? new Date(Date.now() + confirmPlan.duration_days * 86400000).toISOString() : null;
       const { error: upErr } = await supabase.from("user_plans").insert({
-        user_id: profile.id,
-        plan_id: confirmPlan.id,
-        expires_at: expiresAt,
-        is_active: true,
+        user_id: profile.id, plan_id: confirmPlan.id, expires_at: expiresAt, is_active: true,
       });
       if (upErr) throw upErr;
-
-      // 2. Deduct balance + update profile.plan_id to highest tier (latest purchase)
       if (confirmPlan.price > 0) {
         const newBalance = (profile.balance || 0) - confirmPlan.price;
-        await supabase
-          .from("profiles")
-          .update({ balance: newBalance, plan_id: confirmPlan.id, plan_expires_at: expiresAt })
-          .eq("id", profile.id);
-
-        // 3. Transaction record
+        await supabase.from("profiles").update({ balance: newBalance, plan_id: confirmPlan.id, plan_expires_at: expiresAt }).eq("id", profile.id);
         await supabase.from("transactions").insert({
-          user_id: profile.id,
-          type: "plan_purchase",
-          amount: confirmPlan.price,
-          status: "success",
+          user_id: profile.id, type: "plan_purchase", amount: confirmPlan.price, status: "success",
           notes: `Pembelian paket ${confirmPlan.name}${confirmPlan.duration_days > 0 ? ` (${confirmPlan.duration_days} hari)` : ""}`,
         });
       }
-
-      toast({
-        title: "Paket berhasil dibeli!",
-        description: `Paket ${confirmPlan.name} sudah aktif dan ditambahkan ke akun Anda.`,
-      });
+      toast({ title: "Paket berhasil diaktifkan!", description: `Paket ${confirmPlan.name} sudah aktif.` });
       setConfirmPlan(null);
-      // Ensure Free plan stays present after any purchase
       await ensureFreePlan(plans);
       await refreshProfile();
       fetchData();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Terjadi kesalahan";
-      toast({ title: "Pembelian gagal", description: message, variant: "destructive" });
+      toast({ title: "Pembelian gagal", description: err instanceof Error ? err.message : "Terjadi kesalahan", variant: "destructive" });
     } finally {
       setPurchasing(false);
     }
@@ -188,80 +179,75 @@ const UserPlansPage: React.FC = () => {
 
   const getDaysRemaining = (expiresAt: string | null) => {
     if (!expiresAt) return null;
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days;
+    return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
   };
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => <div key={i} className="h-40 bg-muted rounded-2xl animate-pulse" />)}
+      <div className="space-y-4">
+        <div className="h-28 bg-muted rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-52 bg-muted rounded-2xl animate-pulse" />)}
+        </div>
       </div>
     );
   }
+
+  const confirmTheme = getTheme(confirmIdx);
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Paket Saya</h2>
-        <p className="text-muted-foreground text-sm mt-1">Beli paket sebanyak yang Anda mau — klik dan komisi akan dijumlahkan.</p>
+        <p className="text-muted-foreground text-sm mt-1">Beli beberapa paket sekaligus — klik dan komisi dijumlahkan otomatis.</p>
       </div>
 
-      {/* Summary card */}
-      <div className="rounded-2xl p-5 gradient-primary shadow-elevated text-white">
-        <div className="flex items-center gap-2 mb-3">
+      {/* Summary */}
+      <div className="rounded-2xl p-5 gradient-primary shadow-elevated text-white relative overflow-hidden">
+        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10" />
+        <div className="absolute right-4 -bottom-6 w-20 h-20 rounded-full bg-white/5" />
+        <div className="relative flex items-center gap-2 mb-4">
           <Sparkles className="w-4 h-4" />
-          <span className="text-xs font-semibold uppercase tracking-wider">Total Paket Aktif</span>
+          <span className="text-xs font-semibold uppercase tracking-wider">Ringkasan Paket Aktif</span>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
+        <div className="relative grid grid-cols-3 gap-3">
+          <div className="text-center">
             <p className="text-2xl font-bold">{activeUserPlans.length}</p>
-            <p className="text-xs text-white/80">Paket aktif</p>
+            <p className="text-xs text-white/75 mt-0.5">Paket aktif</p>
           </div>
-          <div>
+          <div className="text-center border-x border-white/20">
             <p className="text-2xl font-bold">{totalDailyClicks}</p>
-            <p className="text-xs text-white/80">Klik/hari (total)</p>
+            <p className="text-xs text-white/75 mt-0.5">Klik/hari</p>
           </div>
-          <div>
-            <p className="text-2xl font-bold">{formatIDR(maxCommission)}</p>
-            <p className="text-xs text-white/80">Komisi tertinggi</p>
+          <div className="text-center">
+            <p className="text-xl font-bold">{formatIDR(maxCommission)}</p>
+            <p className="text-xs text-white/75 mt-0.5">Komisi maks</p>
           </div>
         </div>
       </div>
 
-      {/* Active plans list */}
+      {/* Active plan chips */}
       {activeUserPlans.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-foreground mb-3">Paket Aktif Anda ({activeUserPlans.length})</h3>
-          <div className="space-y-2">
-            {activeUserPlans.map(up => {
+          <h3 className="text-sm font-semibold text-foreground mb-2.5">Paket Aktif Anda</h3>
+          <div className="flex flex-wrap gap-2">
+            {activeUserPlans.map((up, idx) => {
+              const theme = getTheme(plans.findIndex(p => p.id === up.plan_id));
               const daysLeft = getDaysRemaining(up.expires_at);
               return (
-                <div key={up.id} className="bg-card rounded-xl p-3.5 border border-green-200 dark:border-green-800 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-foreground text-sm truncate">{up.plan?.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {up.plan?.daily_clicks_limit} klik/hari · {formatIDR(up.plan?.commission_per_click || 0)}/klik
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    {up.expires_at ? (
-                      <Badge variant={daysLeft && daysLeft <= 3 ? "destructive" : "outline"} className="text-[10px] gap-1">
-                        <CalendarDays className="w-2.5 h-2.5" />
-                        {daysLeft} hari lagi
-                      </Badge>
-                    ) : (
-                      <Badge className="text-[10px] bg-green-500/10 text-green-600 border-green-200">
-                        Selamanya
-                      </Badge>
-                    )}
-                  </div>
+                <div key={up.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium"
+                  style={{ background: theme.light, borderColor: theme.border, color: theme.accent }}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>{up.plan?.name}</span>
+                  {daysLeft !== null ? (
+                    <span className="text-[10px] opacity-80 flex items-center gap-0.5">
+                      <Clock className="w-2.5 h-2.5" />{daysLeft}h
+                    </span>
+                  ) : (
+                    <span className="text-[10px] opacity-70">∞</span>
+                  )}
                 </div>
               );
             })}
@@ -269,58 +255,108 @@ const UserPlansPage: React.FC = () => {
         </div>
       )}
 
-      {/* Available plans to purchase — FLAT LIST */}
+      {/* Plan cards grid */}
       <div>
-        <h3 className="text-sm font-semibold text-foreground mb-3">Beli Paket Tambahan</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-3">Semua Paket</h3>
         {plans.length === 0 ? (
           <div className="bg-card rounded-2xl p-12 text-center border border-border">
             <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground text-sm">Belum ada paket tersedia</p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
-            {plans.map(plan => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {plans.map((plan, idx) => {
+              const theme = getTheme(idx);
+              const ThemeIcon = theme.icon;
               const isFree = plan.price === 0;
               const ownedCount = activeUserPlans.filter(up => up.plan_id === plan.id).length;
+              const owned = ownedCount > 0;
 
               return (
                 <div
                   key={plan.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors"
+                  className="bg-card rounded-2xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elevated"
+                  style={{ borderColor: owned ? theme.accent + "55" : undefined }}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-foreground text-sm">{plan.name}</span>
-                      {ownedCount > 0 && (
-                        <Badge className="bg-green-500/10 text-green-600 border-green-200 text-[10px] h-4 px-1.5">
-                          Aktif
-                        </Badge>
+                  {/* Card header — colored */}
+                  <div className="p-4 relative overflow-hidden" style={{ background: theme.gradient }}>
+                    <div className="absolute -right-5 -top-5 w-20 h-20 rounded-full bg-white/10" />
+                    <div className="absolute right-3 -bottom-6 w-14 h-14 rounded-full bg-white/5" />
+
+                    <div className="relative flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                          <ThemeIcon className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
+                        </div>
+                        <div>
+                          <p className="text-white/70 text-[10px] font-medium uppercase tracking-wide">{theme.label}</p>
+                          <p className="text-white font-bold text-base leading-tight">{plan.name}</p>
+                        </div>
+                      </div>
+                      {owned && (
+                        <div className="bg-white/20 rounded-full px-2 py-0.5 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3 text-white" />
+                          <span className="text-white text-[10px] font-semibold">Aktif</span>
+                        </div>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                      <span><strong className="text-foreground">{plan.daily_clicks_limit}</strong> iklan/hari</span>
-                      <span>·</span>
-                      <span><strong className="text-green-600">{formatIDR(plan.commission_per_click)}</strong>/klik</span>
-                      <span>·</span>
-                      <span>{plan.duration_days > 0 ? `${plan.duration_days} hari` : "Selamanya"}</span>
+
+                    <div className="relative mt-3">
+                      <p className="text-white/70 text-[11px]">Harga</p>
+                      <p className="text-white font-bold text-xl leading-tight">
+                        {isFree ? "Gratis" : formatIDR(plan.price)}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0 flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="font-bold text-sm text-foreground leading-tight">
-                        {isFree ? <span className="text-green-500">Gratis</span> : formatIDR(plan.price)}
-                      </p>
+                  {/* Card body */}
+                  <div className="p-4 space-y-3">
+                    {/* Features */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <MousePointerClick className="w-3.5 h-3.5" />
+                          <span>Klik per hari</span>
+                        </div>
+                        <span className="font-bold text-foreground">{plan.daily_clicks_limit}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>Komisi per klik</span>
+                        </div>
+                        <span className="font-bold text-green-600">{formatIDR(plan.commission_per_click)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <CalendarDays className="w-3.5 h-3.5" />
+                          <span>Durasi aktif</span>
+                        </div>
+                        <span className="font-semibold text-foreground">
+                          {plan.duration_days > 0 ? `${plan.duration_days} hari` : "Selamanya"}
+                        </span>
+                      </div>
                     </div>
-                    <Button
-                      size="sm"
-                      className="h-8 text-[11px] px-3"
-                      onClick={() => setConfirmPlan(plan)}
-                      disabled={ownedCount > 0}
-                      variant={ownedCount > 0 ? "outline" : "default"}
+
+                    {/* Divider */}
+                    <div className="h-px bg-border" />
+
+                    {/* Action button */}
+                    <button
+                      onClick={() => !owned && openConfirm(plan, idx)}
+                      disabled={owned}
+                      className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={owned
+                        ? { background: theme.light, color: theme.accent, border: `1px solid ${theme.border}` }
+                        : { background: theme.gradient, color: "white" }
+                      }
                     >
-                      {ownedCount > 0 ? "Dimiliki" : isFree ? "Aktifkan" : "Beli"}
-                    </Button>
+                      {owned ? (
+                        <span className="flex items-center justify-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5" /> Sudah Dimiliki
+                        </span>
+                      ) : isFree ? "Aktifkan Gratis" : `Beli — ${formatIDR(plan.price)}`}
+                    </button>
                   </div>
                 </div>
               );
@@ -331,72 +367,78 @@ const UserPlansPage: React.FC = () => {
 
       {/* Confirm dialog */}
       <Dialog open={!!confirmPlan} onOpenChange={(o) => !o && setConfirmPlan(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Konfirmasi Pembelian</DialogTitle>
-            <DialogDescription>
-              Beli paket <strong>{confirmPlan?.name}</strong> seharga{" "}
-              <strong className="text-primary">
-                {confirmPlan?.price === 0 ? "Gratis" : formatIDR(confirmPlan?.price || 0)}
-              </strong>
-              ?
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-sm p-0 overflow-hidden gap-0">
+          {/* Colored top */}
+          <div className="h-2" style={{ background: confirmTheme.gradient }} />
+          <div className="p-6">
+            <DialogHeader className="mb-4">
+              <DialogTitle>Konfirmasi Pembelian</DialogTitle>
+              <DialogDescription>
+                Beli paket <strong>{confirmPlan?.name}</strong> seharga{" "}
+                <strong style={{ color: confirmTheme.accent }}>
+                  {confirmPlan?.price === 0 ? "Gratis" : formatIDR(confirmPlan?.price || 0)}
+                </strong>?
+              </DialogDescription>
+            </DialogHeader>
 
-          {confirmPlan && (
-            <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Klik harian</span>
-                <span className="font-medium">+{confirmPlan.daily_clicks_limit} klik/hari</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Komisi per klik</span>
-                <span className="font-medium">{formatIDR(confirmPlan.commission_per_click)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Durasi aktif</span>
-                <span className="font-medium">{confirmPlan.duration_days > 0 ? `${confirmPlan.duration_days} hari` : "Selamanya"}</span>
-              </div>
-              {confirmPlan.price > 0 && (
-                <div className="flex justify-between pt-1.5 border-t border-border mt-1.5">
-                  <span className="text-muted-foreground">Saldo Anda</span>
-                  <span className={`font-bold ${(profile?.balance || 0) < confirmPlan.price ? "text-red-500" : "text-green-600"}`}>
-                    {formatIDR(profile?.balance || 0)}
-                  </span>
+            {confirmPlan && (
+              <div className="rounded-xl p-3.5 space-y-2 text-xs mb-4"
+                style={{ background: confirmTheme.light, border: `1px solid ${confirmTheme.border}` }}>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Klik harian</span>
+                  <span className="font-bold text-foreground">+{confirmPlan.daily_clicks_limit} klik/hari</span>
                 </div>
-              )}
-            </div>
-          )}
-
-          {confirmPlan && confirmPlan.price > 0 && (profile?.balance || 0) < confirmPlan.price && (
-            <div className="bg-red-500/10 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <div className="text-xs">
-                <p className="font-medium text-red-700 dark:text-red-400">Saldo tidak cukup</p>
-                <p className="text-red-600 dark:text-red-500">Silakan top up terlebih dahulu.</p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Komisi per klik</span>
+                  <span className="font-bold text-green-600">{formatIDR(confirmPlan.commission_per_click)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Durasi aktif</span>
+                  <span className="font-bold text-foreground">{confirmPlan.duration_days > 0 ? `${confirmPlan.duration_days} hari` : "Selamanya"}</span>
+                </div>
+                {confirmPlan.price > 0 && (
+                  <div className="flex justify-between pt-2 border-t border-border mt-1">
+                    <span className="text-muted-foreground">Saldo Anda</span>
+                    <span className={`font-bold ${(profile?.balance || 0) < confirmPlan.price ? "text-red-500" : "text-green-600"}`}>
+                      {formatIDR(profile?.balance || 0)}
+                    </span>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 sm:gap-2">
-            {confirmPlan && confirmPlan.price > 0 && (profile?.balance || 0) < confirmPlan.price ? (
-              <Button
-                onClick={() => { setConfirmPlan(null); navigate("/dashboard/deposit"); }}
-                className="w-full"
-              >
-                <ArrowDownToLine className="w-3.5 h-3.5 mr-1.5" /> Top Up Saldo
-              </Button>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => setConfirmPlan(null)} disabled={purchasing}>
-                  Batal
-                </Button>
-                <Button onClick={handlePurchase} disabled={purchasing}>
-                  {purchasing ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Memproses...</> : "Konfirmasi Beli"}
-                </Button>
-              </>
             )}
-          </DialogFooter>
+
+            {confirmPlan && confirmPlan.price > 0 && (profile?.balance || 0) < confirmPlan.price && (
+              <div className="bg-red-500/10 border border-red-200 rounded-lg p-3 flex items-start gap-2 mb-4">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-semibold text-red-700 dark:text-red-400">Saldo tidak cukup</p>
+                  <p className="text-red-600 dark:text-red-500">Silakan top up terlebih dahulu.</p>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2">
+              {confirmPlan && confirmPlan.price > 0 && (profile?.balance || 0) < confirmPlan.price ? (
+                <Button onClick={() => { setConfirmPlan(null); navigate("/dashboard/deposit"); }} className="w-full">
+                  <ArrowDownToLine className="w-3.5 h-3.5 mr-1.5" /> Top Up Saldo
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setConfirmPlan(null)} disabled={purchasing} className="flex-1">
+                    Batal
+                  </Button>
+                  <button
+                    onClick={handlePurchase}
+                    disabled={purchasing}
+                    className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60 flex items-center justify-center gap-1.5"
+                    style={{ background: confirmTheme.gradient }}
+                  >
+                    {purchasing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Memproses...</> : "Konfirmasi Beli"}
+                  </button>
+                </>
+              )}
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { formatIDR } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { MousePointerClick, ExternalLink, Clock, CheckCircle, AlertCircle, Timer, X, RefreshCw, Package } from "lucide-react";
+import { MousePointerClick, Clock, CheckCircle, AlertCircle, Timer, X, RefreshCw, Package, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
@@ -13,7 +13,6 @@ interface Ad {
   title: string;
   description: string | null;
   url: string;
-  image_url: string | null;
   cpc_rate: number;
   view_duration: number;
   plan_id: string | null;
@@ -38,7 +37,7 @@ const AdsPage: React.FC = () => {
   const [clicksByPlan, setClicksByPlan] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  // Timer modal state
+  // Timer modal
   const [timerAd, setTimerAd] = useState<Ad | null>(null);
   const [timerCommission, setTimerCommission] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -49,7 +48,7 @@ const AdsPage: React.FC = () => {
   // Reset countdown
   const [resetCountdown, setResetCountdown] = useState("");
   useEffect(() => {
-    const update = () => {
+    const tick = () => {
       const now = new Date();
       const midnight = new Date(now);
       midnight.setHours(24, 0, 0, 0);
@@ -59,18 +58,48 @@ const AdsPage: React.FC = () => {
       const s = Math.floor((diff % 60000) / 1000);
       setResetCountdown(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
     };
-    update();
-    const id = setInterval(update, 1000);
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Ensure Free plan row exists for this user (auto-repair if missing)
+  const ensureFreePlan = async (userId: string) => {
+    const { data: freePlan } = await supabase
+      .from("plans")
+      .select("id")
+      .ilike("name", "free")
+      .single();
+    if (!freePlan) return;
+
+    const { data: existing } = await supabase
+      .from("user_plans")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("plan_id", freePlan.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!existing) {
+      await supabase.from("user_plans").insert({
+        user_id: userId,
+        plan_id: freePlan.id,
+        expires_at: null,
+        is_active: true,
+      });
+    }
+  };
 
   const fetchData = async () => {
     if (!profile) return;
     const today = new Date().toISOString().split("T")[0];
     const nowIso = new Date().toISOString();
 
+    // Ensure free plan is always present
+    await ensureFreePlan(profile.id);
+
     const [adsRes, clicksRes, userPlansRes] = await Promise.all([
-      supabase.from("ads").select("*").eq("status", "active"),
+      supabase.from("ads").select("id, title, description, url, cpc_rate, view_duration, plan_id").eq("status", "active"),
       supabase
         .from("ad_clicks")
         .select("ad_id, ad:ads(plan_id)")
@@ -87,19 +116,13 @@ const AdsPage: React.FC = () => {
     const clickRows = (clicksRes.data as { ad_id: string; ad: { plan_id: string | null } | null }[]) || [];
     const clickedAdIds = new Set(clickRows.map(c => c.ad_id));
 
-    // Build per-plan click counter
     const perPlan = new Map<string, number>();
     clickRows.forEach(c => {
       const pid = c.ad?.plan_id;
       if (pid) perPlan.set(pid, (perPlan.get(pid) || 0) + 1);
     });
 
-    const adsWithStatus = (adsRes.data || []).map(ad => ({
-      ...ad,
-      clicked_today: clickedAdIds.has(ad.id),
-    }));
-
-    setAds(adsWithStatus);
+    setAds((adsRes.data || []).map(ad => ({ ...ad, clicked_today: clickedAdIds.has(ad.id) })));
     setUserPlans((userPlansRes.data as UserPlan[]) || []);
     setClicksByPlan(perPlan);
     setLoading(false);
@@ -118,24 +141,18 @@ const AdsPage: React.FC = () => {
 
   const startTimer = (ad: Ad, planLimit: number, planUsed: number, planCommission: number) => {
     if (planUsed >= planLimit) {
-      toast({ title: "Batas paket tercapai", description: "Kuota klik harian paket ini sudah habis.", variant: "destructive" });
+      toast({ title: "Kuota harian habis", description: "Klik Anda untuk paket ini sudah penuh hari ini.", variant: "destructive" });
       return;
     }
     if (ad.clicked_today) return;
-
     window.open(ad.url, "_blank");
     setTimerAd(ad);
     setTimerCommission(planCommission);
     setTimerDone(false);
     setTimeLeft(ad.view_duration || 30);
-
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          setTimerDone(true);
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(timerRef.current!); setTimerDone(true); return 0; }
         return prev - 1;
       });
     }, 1000);
@@ -143,66 +160,49 @@ const AdsPage: React.FC = () => {
 
   const closeTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    setTimerAd(null);
-    setTimeLeft(0);
-    setTimerDone(false);
-    setCrediting(false);
+    setTimerAd(null); setTimeLeft(0); setTimerDone(false); setCrediting(false);
   };
 
   const creditCommission = async () => {
     if (!profile || !timerAd || !timerDone) return;
     setCrediting(true);
-
-    const earn = timerCommission;
     const { error } = await supabase.from("ad_clicks").insert({
-      user_id: profile.id, ad_id: timerAd.id, earned_amount: earn,
+      user_id: profile.id, ad_id: timerAd.id, earned_amount: timerCommission,
     });
-    if (error) {
-      toast({ title: "Gagal merekam klik", variant: "destructive" });
-      closeTimer();
-      return;
-    }
-
-    const newBal = (profile.balance || 0) + earn;
+    if (error) { toast({ title: "Gagal merekam klik", variant: "destructive" }); closeTimer(); return; }
+    const newBal = (profile.balance || 0) + timerCommission;
     await Promise.all([
       supabase.from("profiles").update({ balance: newBal }).eq("id", profile.id),
       supabase.from("transactions").insert({
-        user_id: profile.id, type: "commission", amount: earn, status: "success",
+        user_id: profile.id, type: "commission", amount: timerCommission, status: "success",
         notes: `Komisi klik iklan: ${timerAd.title}`,
       }),
     ]);
-
-    toast({ title: `+${formatIDR(earn)} dikreditkan!` });
-    closeTimer();
-    fetchData();
-    refreshProfile();
+    toast({ title: `+${formatIDR(timerCommission)} dikreditkan!` });
+    closeTimer(); fetchData(); refreshProfile();
   };
 
   const totalDuration = timerAd?.view_duration || 30;
   const progress = totalDuration > 0 ? ((totalDuration - timeLeft) / totalDuration) * 100 : 100;
   const circumference = 2 * Math.PI * 44;
-
-  if (loading) {
-    return <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-32 bg-muted rounded-2xl animate-pulse" />)}</div>;
-  }
-
-  // Only owned active plans
   const activePlans = userPlans.filter(up => up.plan);
 
+  if (loading) {
+    return <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />)}</div>;
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Klik Iklan</h2>
         <p className="text-muted-foreground text-sm mt-1">Iklan ditampilkan sesuai paket aktif Anda.</p>
       </div>
 
-      {/* Reset countdown bar */}
-      <div className="bg-card rounded-2xl p-4 border border-border shadow-card flex items-center justify-between gap-3 flex-wrap">
+      {/* Status bar */}
+      <div className="bg-card rounded-xl p-3.5 border border-border flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <MousePointerClick className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">
-            {activePlans.length} paket aktif
-          </span>
+          <span className="text-sm font-medium text-foreground">{activePlans.length} paket aktif</span>
         </div>
         <div className="flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 rounded-full">
           <RefreshCw className="w-3 h-3 text-primary" />
@@ -211,15 +211,12 @@ const AdsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* No active plans */}
       {activePlans.length === 0 ? (
-        <div className="bg-card rounded-2xl p-10 text-center border border-border">
-          <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+        <div className="bg-card rounded-xl p-10 text-center border border-border">
+          <Package className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-foreground font-medium mb-1">Belum ada paket aktif</p>
           <p className="text-muted-foreground text-sm mb-4">Beli paket untuk mulai melihat iklan dan dapat komisi.</p>
-          <Link to="/dashboard/plans">
-            <Button size="sm">Lihat Paket</Button>
-          </Link>
+          <Link to="/dashboard/plans"><Button size="sm">Lihat Paket</Button></Link>
         </div>
       ) : (
         activePlans.map(up => {
@@ -230,70 +227,71 @@ const AdsPage: React.FC = () => {
           const remaining = Math.max(0, limit - used);
 
           return (
-            <div key={plan.id} className="space-y-3">
+            <div key={plan.id} className="space-y-2">
               {/* Plan header */}
-              <div className="bg-card rounded-2xl p-4 border border-border shadow-card">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="bg-card rounded-xl p-3.5 border border-border">
+                <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-bold text-foreground">
+                    <span className="text-sm font-bold text-foreground">
                       Paket <span className="text-primary">{plan.name}</span>
-                    </h3>
+                    </span>
                     <Badge className="bg-green-500/10 text-green-600 border-green-200 text-[10px]">
                       {formatIDR(plan.commission_per_click)}/klik
                     </Badge>
                   </div>
-                  <span className="text-xs font-semibold text-foreground">{used} / {limit} klik</span>
+                  <span className="text-xs font-semibold text-foreground tabular-nums">{used}/{limit}</span>
                 </div>
-                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-2.5">
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                   <div className="h-full gradient-primary rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (used / limit) * 100)}%` }} />
+                    style={{ width: `${Math.min(100, limit > 0 ? (used / limit) * 100 : 0)}%` }} />
                 </div>
               </div>
 
-              {/* Ads grid */}
+              {/* Ads compact grid */}
               {planAds.length === 0 ? (
-                <div className="bg-muted/30 rounded-xl p-6 text-center border border-dashed border-border">
-                  <AlertCircle className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                <div className="rounded-lg p-4 text-center border border-dashed border-border">
+                  <AlertCircle className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
                   <p className="text-xs text-muted-foreground">Belum ada iklan untuk paket ini</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 gap-1.5">
                   {planAds.map(ad => (
-                    <div key={ad.id} className={`bg-card rounded-xl border shadow-card overflow-hidden transition-all duration-200 ${
-                      ad.clicked_today ? "opacity-60 border-border" :
-                      "border-border hover:shadow-elevated hover:-translate-y-0.5"
-                    }`}>
-                      {ad.image_url ? (
-                        <div className="h-20 bg-muted overflow-hidden">
-                          <img src={ad.image_url} alt={ad.title} className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="h-20 gradient-primary flex items-center justify-center">
-                          <ExternalLink className="w-6 h-6 text-white/60" />
-                        </div>
-                      )}
-                      <div className="p-2.5">
-                        <h3 className="font-semibold text-foreground text-xs mb-1 line-clamp-1">{ad.title}</h3>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm font-bold text-green-600">{formatIDR(plan.commission_per_click)}</p>
-                          <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                            <Timer className="w-2.5 h-2.5" />{ad.view_duration || 30}s
-                          </div>
-                        </div>
+                    <div key={ad.id}
+                      className={`bg-card rounded-lg border px-3.5 py-2.5 flex items-center gap-3 transition-all duration-150 ${
+                        ad.clicked_today ? "opacity-60 border-border" : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      {/* Icon */}
+                      <div className="w-8 h-8 rounded-md gradient-primary flex items-center justify-center shrink-0">
+                        <ExternalLink className="w-3.5 h-3.5 text-white" />
+                      </div>
 
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">{ad.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] font-bold text-green-600">{formatIDR(plan.commission_per_click)}</span>
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Timer className="w-2.5 h-2.5" />{ad.view_duration || 30}s
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action */}
+                      <div className="shrink-0">
                         {ad.clicked_today ? (
-                          <Badge className="w-full justify-center bg-green-500/10 text-green-600 border-green-200 text-[10px] h-6">
-                            <CheckCircle className="w-2.5 h-2.5 mr-1" /> Sudah Diklik
+                          <Badge className="bg-green-500/10 text-green-600 border-green-200 text-[10px] gap-0.5">
+                            <CheckCircle className="w-2.5 h-2.5" />Selesai
                           </Badge>
                         ) : remaining === 0 ? (
-                          <Badge variant="outline" className="w-full justify-center text-muted-foreground text-[10px] h-6">
-                            <Clock className="w-2.5 h-2.5 mr-1" /> Kuota habis
+                          <Badge variant="outline" className="text-muted-foreground text-[10px] gap-0.5">
+                            <Clock className="w-2.5 h-2.5" />Habis
                           </Badge>
                         ) : (
-                          <Button className="w-full h-7 text-[11px] px-2" size="sm"
+                          <Button className="h-7 text-[11px] px-2.5" size="sm"
                             onClick={() => startTimer(ad, limit, used, plan.commission_per_click)}>
-                            Tonton & Dapat
+                            Tonton
                           </Button>
                         )}
                       </div>
@@ -311,11 +309,10 @@ const AdsPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-card rounded-3xl shadow-2xl border border-border w-full max-w-sm p-7 text-center relative">
             {!timerDone && (
-              <button onClick={closeTimer} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground" title="Tutup (komisi tidak akan diberikan)">
+              <button onClick={closeTimer} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             )}
-
             {!timerDone ? (
               <>
                 <div className="flex items-center gap-2 justify-center mb-2">
@@ -336,9 +333,7 @@ const AdsPage: React.FC = () => {
                     <span className="text-xs text-muted-foreground">detik</span>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Iklan terbuka di tab baru. Tonton selama <strong>{timerAd.view_duration}s</strong>.
-                </p>
+                <p className="text-xs text-muted-foreground mb-1">Iklan terbuka di tab baru. Tonton <strong>{timerAd.view_duration}s</strong>.</p>
                 <p className="text-xs text-amber-600 font-medium">Jangan tutup halaman ini</p>
               </>
             ) : (
@@ -348,7 +343,7 @@ const AdsPage: React.FC = () => {
                 </div>
                 <h3 className="font-bold text-foreground text-lg mb-1">Selesai!</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Anda akan mendapatkan <span className="font-bold text-green-600">{formatIDR(timerCommission)}</span>
+                  Anda mendapat <span className="font-bold text-green-600">{formatIDR(timerCommission)}</span>
                 </p>
                 <Button className="w-full bg-green-500 hover:bg-green-600" onClick={creditCommission} disabled={crediting}>
                   {crediting ? "Memproses..." : `Klaim +${formatIDR(timerCommission)}`}

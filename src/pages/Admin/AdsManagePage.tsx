@@ -46,6 +46,15 @@ interface MonotagConfig {
   view_duration: number;
 }
 
+interface MonotagEditForm {
+  id: string;
+  title: string;
+  url: string;
+  cpc_rate: number;
+  view_duration: number;
+  status: "active" | "paused" | "ended";
+}
+
 const emptyForm = {
   title: "", description: "", url: "", image_url: "",
   cpc_rate: 500, daily_budget: 100000, total_budget: 1000000,
@@ -72,6 +81,10 @@ const AdsManagePage: React.FC = () => {
   // Monetag config (one per plan)
   const [monetagConfigs, setMonotagConfigs] = useState<MonotagConfig[]>([]);
   const [generating, setGenerating] = useState<string | null>(null); // plan_id being generated
+  // Monetag individual ad edit
+  const [monetagEditOpen, setMonotagEditOpen] = useState(false);
+  const [monetagEditForm, setMonotagEditForm] = useState<MonotagEditForm | null>(null);
+  const [monetagSaving, setMonotagSaving] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -189,6 +202,21 @@ const AdsManagePage: React.FC = () => {
     setMonotagConfigs(prev => prev.map(c => c.plan_id === plan_id ? { ...c, [field]: value } : c));
   };
 
+  const openMonotagEdit = (ad: Ad) => {
+    setMonotagEditForm({ id: ad.id, title: ad.title, url: ad.url, cpc_rate: ad.cpc_rate, view_duration: ad.view_duration || 30, status: ad.status });
+    setMonotagEditOpen(true);
+  };
+
+  const handleMonotagSave = async () => {
+    if (!monetagEditForm) return;
+    setMonotagSaving(true);
+    const { id, ...payload } = monetagEditForm;
+    const { error } = await supabase.from("ads").update(payload).eq("id", id);
+    if (error) toast({ title: "Gagal menyimpan", variant: "destructive" });
+    else { toast({ title: "Iklan diperbarui" }); setMonotagEditOpen(false); fetchData(); }
+    setMonotagSaving(false);
+  };
+
   const statusBadge = (status: string) => {
     if (status === "active") return <Badge className="bg-green-500/10 text-green-600 border-green-200">Aktif</Badge>;
     if (status === "paused") return <Badge className="bg-amber-500/10 text-amber-600 border-amber-200">Dijeda</Badge>;
@@ -292,12 +320,9 @@ const AdsManagePage: React.FC = () => {
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => toggleStatus(ad)}>
                             {ad.status === "active" ? <Pause className="w-3.5 h-3.5 text-amber-500" /> : <Play className="w-3.5 h-3.5 text-green-500" />}
                           </Button>
-                          {ad.source !== "monetag" && (
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(ad)}>
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(ad.id)}>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => ad.source === "monetag" ? openMonotagEdit(ad) : openEdit(ad)}>
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(ad.id)}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
@@ -411,6 +436,36 @@ const AdsManagePage: React.FC = () => {
                         </p>
                       )}
                     </div>
+
+                    {/* List of generated ads with edit */}
+                    {existing.length > 0 && (
+                      <div className="border border-border rounded-lg overflow-hidden mt-2">
+                        <div className="bg-muted/30 px-4 py-2 text-xs font-semibold text-muted-foreground border-b border-border">
+                          Iklan yang sudah di-generate ({existing.length})
+                        </div>
+                        <div className="divide-y divide-border">
+                          {existing.map(ad => (
+                            <div key={ad.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="text-sm font-medium text-foreground truncate">{ad.title}</span>
+                                <span className="text-xs text-muted-foreground shrink-0">{formatIDR(ad.cpc_rate)}</span>
+                                <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-0.5"><Timer className="w-3 h-3" />{ad.view_duration}s</span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0 ml-2">
+                                {statusBadge(ad.status)}
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 ml-1" onClick={() => openMonotagEdit(ad)}>
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(ad.id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -463,6 +518,52 @@ const AdsManagePage: React.FC = () => {
           <div className="flex gap-3 px-6 py-4 border-t border-border bg-card shrink-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1"><X className="w-4 h-4 mr-2" />Batal</Button>
             <Button onClick={handleSave} disabled={saveLoading} className="flex-1"><Save className="w-4 h-4 mr-2" />{saveLoading ? "Menyimpan..." : editAd ? "Perbarui" : "Buat Iklan"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Monetag Edit Dialog */}
+      <Dialog open={monetagEditOpen} onOpenChange={setMonotagEditOpen}>
+        <DialogContent className="max-w-md flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0">
+            <DialogTitle className="flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500" />Edit Iklan Monetag</DialogTitle>
+          </DialogHeader>
+          {monetagEditForm && (
+            <div className="space-y-4 px-6 py-4">
+              <div className="space-y-2">
+                <Label>Judul Iklan</Label>
+                <Input value={monetagEditForm.title} onChange={e => setMonotagEditForm({ ...monetagEditForm, title: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Smart Link URL</Label>
+                <Input value={monetagEditForm.url} onChange={e => setMonotagEditForm({ ...monetagEditForm, url: e.target.value })} className="font-mono text-xs" placeholder="https://..." />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Komisi / Klik (IDR)</Label>
+                  <Input type="number" value={monetagEditForm.cpc_rate} onChange={e => setMonotagEditForm({ ...monetagEditForm, cpc_rate: parseInt(e.target.value) || 0 })} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1"><Timer className="w-3.5 h-3.5" />Durasi (detik)</Label>
+                  <Input type="number" min={5} max={300} value={monetagEditForm.view_duration} onChange={e => setMonotagEditForm({ ...monetagEditForm, view_duration: parseInt(e.target.value) || 30 })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={monetagEditForm.status} onValueChange={v => setMonotagEditForm({ ...monetagEditForm, status: v as Ad["status"] })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Aktif</SelectItem>
+                    <SelectItem value="paused">Dijeda</SelectItem>
+                    <SelectItem value="ended">Berakhir</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <div className="flex gap-3 px-6 py-4 border-t border-border bg-card shrink-0">
+            <Button variant="outline" onClick={() => setMonotagEditOpen(false)} className="flex-1"><X className="w-4 h-4 mr-2" />Batal</Button>
+            <Button onClick={handleMonotagSave} disabled={monetagSaving} className="flex-1"><Save className="w-4 h-4 mr-2" />{monetagSaving ? "Menyimpan..." : "Simpan"}</Button>
           </div>
         </DialogContent>
       </Dialog>

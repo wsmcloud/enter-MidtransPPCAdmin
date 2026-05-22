@@ -44,6 +44,30 @@ const UserPlansPage: React.FC = () => {
   const [purchasing, setPurchasing] = useState(false);
   const [confirmPlan, setConfirmPlan] = useState<Plan | null>(null);
 
+  const ensureFreePlan = async (currentPlans: Plan[]) => {
+    if (!profile) return false;
+    const freePlan = currentPlans.find(p => p.name.toLowerCase() === "free");
+    if (!freePlan) return false;
+
+    const { data: existing } = await supabase
+      .from("user_plans")
+      .select("id")
+      .eq("user_id", profile.id)
+      .eq("plan_id", freePlan.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (existing) return false;
+
+    await supabase.from("user_plans").insert({
+      user_id: profile.id,
+      plan_id: freePlan.id,
+      expires_at: null,
+      is_active: true,
+    });
+    return true;
+  };
+
   const fetchData = async () => {
     setLoading(true);
     const [plansRes, userPlansRes] = await Promise.all([
@@ -57,8 +81,30 @@ const UserPlansPage: React.FC = () => {
             .order("purchased_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
     ]);
-    setPlans(plansRes.data || []);
-    setUserPlans((userPlansRes.data as UserPlan[]) || []);
+
+    const allPlans = plansRes.data || [];
+    let myPlans = (userPlansRes.data as UserPlan[]) || [];
+
+    // Ensure Free plan always present in user_plans
+    const freePlan = allPlans.find(p => p.name.toLowerCase() === "free");
+    if (freePlan && profile) {
+      const hasFree = myPlans.some(up => up.plan_id === freePlan.id);
+      if (!hasFree) {
+        const inserted = await ensureFreePlan(allPlans);
+        if (inserted) {
+          const refetch = await supabase
+            .from("user_plans")
+            .select("*, plan:plans(*)")
+            .eq("user_id", profile.id)
+            .eq("is_active", true)
+            .order("purchased_at", { ascending: false });
+          myPlans = (refetch.data as UserPlan[]) || myPlans;
+        }
+      }
+    }
+
+    setPlans(allPlans);
+    setUserPlans(myPlans);
     setLoading(false);
   };
 
@@ -128,6 +174,8 @@ const UserPlansPage: React.FC = () => {
         description: `Paket ${confirmPlan.name} sudah aktif dan ditambahkan ke akun Anda.`,
       });
       setConfirmPlan(null);
+      // Ensure Free plan stays present after any purchase
+      await ensureFreePlan(plans);
       await refreshProfile();
       fetchData();
     } catch (err: unknown) {

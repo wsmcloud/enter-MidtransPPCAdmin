@@ -192,9 +192,11 @@ const AdsManagePage: React.FC = () => {
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editAd ? "Edit Iklan" : "Tambah Iklan Baru"}</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0">
+            <DialogTitle>{editAd ? "Edit Iklan" : "Tambah Iklan Baru"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 px-6 py-4 overflow-y-auto flex-1">
             <div className="space-y-2"><Label>Judul Iklan</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Contoh: Promo Belanja Online" /></div>
             <div className="space-y-2"><Label>URL Tujuan</Label><Input value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} placeholder="https://..." /></div>
             <div className="space-y-2"><Label>URL Gambar (opsional)</Label><Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." /></div>
@@ -220,23 +222,21 @@ const AdsManagePage: React.FC = () => {
               <div className="space-y-2"><Label>Budget Harian (IDR)</Label><Input type="number" value={form.daily_budget} onChange={e => setForm({ ...form, daily_budget: parseInt(e.target.value) || 0 })} /></div>
               <div className="space-y-2"><Label>Total Budget (IDR)</Label><Input type="number" value={form.total_budget} onChange={e => setForm({ ...form, total_budget: parseInt(e.target.value) || 0 })} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={v => setForm({ ...form, status: v as Ad["status"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Aktif</SelectItem>
-                    <SelectItem value="paused">Dijeda</SelectItem>
-                    <SelectItem value="ended">Berakhir</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={v => setForm({ ...form, status: v as Ad["status"] })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktif</SelectItem>
+                  <SelectItem value="paused">Dijeda</SelectItem>
+                  <SelectItem value="ended">Berakhir</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex gap-3 pt-1">
-              <Button onClick={handleSave} disabled={saveLoading} className="flex-1"><Save className="w-4 h-4 mr-2" />{saveLoading ? "Menyimpan..." : editAd ? "Perbarui" : "Buat Iklan"}</Button>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}><X className="w-4 h-4" /></Button>
-            </div>
+          </div>
+          <div className="flex gap-3 px-6 py-4 border-t border-border bg-card shrink-0">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1"><X className="w-4 h-4 mr-2" />Batal</Button>
+            <Button onClick={handleSave} disabled={saveLoading} className="flex-1"><Save className="w-4 h-4 mr-2" />{saveLoading ? "Menyimpan..." : editAd ? "Perbarui" : "Buat Iklan"}</Button>
           </div>
         </DialogContent>
       </Dialog>

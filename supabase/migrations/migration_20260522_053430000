@@ -1,0 +1,4 @@
+
+-- Add source column to track auto-generated ads
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
+CREATE INDEX IF NOT EXISTS idx_ads_source ON ads(source);

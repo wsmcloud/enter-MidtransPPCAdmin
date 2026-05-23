@@ -23,8 +23,7 @@ interface Withdrawal {
   amount: number;
   status: string;
   created_at: string;
-  user_id: string;
-  profile_name?: string;
+  account_holder: string;
 }
 
 const Dashboard: React.FC = () => {
@@ -49,29 +48,10 @@ const Dashboard: React.FC = () => {
           supabase.from("ad_clicks").select("id", { count: "exact", head: true }).eq("user_id", profile.id).gte("clicked_at", today),
           supabase.from("transactions").select("type, amount, status").eq("user_id", profile.id),
           supabase.from("withdrawal_requests")
-            .select("id, amount, status, created_at, user_id")
+            .select("id, amount, status, created_at, account_holder")
             .order("created_at", { ascending: false })
             .limit(15),
         ]);
-
-        // Fetch profiles for withdrawal users
-        const wdData = wdRes.data || [];
-        const userIds = [...new Set(wdData.map(w => w.user_id))];
-        const profileMap: Record<string, string> = {};
-        if (userIds.length > 0) {
-          const { data: profilesData } = await supabase
-            .from("profiles")
-            .select("id, full_name, username")
-            .in("id", userIds);
-          (profilesData || []).forEach(p => {
-            profileMap[p.id] = p.full_name || p.username || "Member";
-          });
-        }
-
-        const merged: Withdrawal[] = wdData.map(w => ({
-          ...w,
-          profile_name: profileMap[w.user_id] || "Member",
-        }));
 
         const allTx = txRes.data || [];
         const totalEarned = allTx.filter(t => t.type === "commission" && t.status === "success").reduce((s, t) => s + Number(t.amount), 0);
@@ -83,7 +63,7 @@ const Dashboard: React.FC = () => {
           total_clicks: 0,
           pending_deposit: pendingDeposit,
         });
-        setWithdrawals(merged);
+        setWithdrawals(wdRes.data as unknown as Withdrawal[] || []);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       }
@@ -261,7 +241,7 @@ const Dashboard: React.FC = () => {
             </div>
           ) : (
             withdrawals.map(w => {
-              const name = w.profile_name || "Member";
+              const name = w.account_holder || "Member";
               const maskedName = name.length > 3
                 ? name.slice(0, 2) + "***" + name.slice(-1)
                 : name[0] + "***";

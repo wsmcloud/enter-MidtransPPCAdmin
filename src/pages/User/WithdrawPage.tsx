@@ -96,7 +96,7 @@ const WithdrawPage: React.FC = () => {
       notes: `Penarikan ke ${form.bank_name} - ${form.account_number}`,
     });
 
-    toast({ title: "Pengajuan berhasil!", description: "Penarikan akan diproses oleh admin dalam 1x24 jam." });
+    toast({ title: "Pengajuan berhasil!", description: "Penarikan akan diproses otomatis oleh sistem mohon tunggu. Terimakasih." });
     setForm({ amount: "", bank_name: "", account_number: "", account_holder: "" });
     fetchRequests();
     refreshProfile();
@@ -177,7 +177,7 @@ const WithdrawPage: React.FC = () => {
 
           <div className="p-3 rounded-lg bg-muted flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-            <p className="text-xs text-muted-foreground">Penarikan akan diproses oleh admin dalam 1x24 jam kerja. Saldo akan dikurangi sementara.</p>
+            <p className="text-xs text-muted-foreground">Penarikan akan diproses otomatis oleh sistem mohon tunggu. Terimakasih.</p>
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>

@@ -24,6 +24,7 @@ interface WithdrawRequest {
 const BANKS = ["BCA", "BNI", "BRI", "Mandiri", "BSI", "CIMB Niaga", "Danamon", "Permata", "BTN", "OVO", "GoPay", "DANA"];
 
 const MIN_WITHDRAW = 10000;
+const WITHDRAW_FEE = 4500;
 
 const WithdrawPage: React.FC = () => {
   const { profile, refreshProfile } = useAuth();
@@ -51,9 +52,11 @@ const WithdrawPage: React.FC = () => {
     setReqLoading(false);
   };
 
+  const numAmount = parseInt(form.amount) || 0;
+  const receivedAmount = numAmount > WITHDRAW_FEE ? numAmount - WITHDRAW_FEE : 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numAmount = parseInt(form.amount);
 
     if (!numAmount || numAmount < MIN_WITHDRAW) {
       toast({ title: `Minimum penarikan ${formatIDR(MIN_WITHDRAW)}`, variant: "destructive" });
@@ -74,7 +77,7 @@ const WithdrawPage: React.FC = () => {
 
     const { error } = await supabase.from("withdrawal_requests").insert({
       user_id: profile!.id,
-      amount: numAmount,
+      amount: receivedAmount,
       bank_name: form.bank_name,
       account_number: form.account_number,
       account_holder: form.account_holder,
@@ -86,14 +89,14 @@ const WithdrawPage: React.FC = () => {
       return;
     }
 
-    // Deduct balance temporarily (will be reversed if rejected)
+    // Deduct full amount (including fee) from balance
     await supabase.from("profiles").update({ balance: (profile!.balance || 0) - numAmount }).eq("id", profile!.id);
     await supabase.from("transactions").insert({
       user_id: profile!.id,
       type: "withdrawal",
       amount: numAmount,
       status: "pending",
-      notes: `Penarikan ke ${form.bank_name} - ${form.account_number}`,
+      notes: `Penarikan ke ${form.bank_name} - ${form.account_number} (fee: ${formatIDR(WITHDRAW_FEE)})`,
     });
 
     toast({ title: "Pengajuan berhasil!", description: "Penarikan akan diproses otomatis oleh sistem mohon tunggu. Terimakasih." });
@@ -145,6 +148,22 @@ const WithdrawPage: React.FC = () => {
               min={MIN_WITHDRAW}
               max={profile?.balance || 0}
             />
+            {numAmount >= MIN_WITHDRAW && (
+              <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 space-y-1.5 text-xs">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Jumlah penarikan</span>
+                  <span>{formatIDR(numAmount)}</span>
+                </div>
+                <div className="flex justify-between text-destructive">
+                  <span>Biaya admin</span>
+                  <span>- {formatIDR(WITHDRAW_FEE)}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1.5">
+                  <span>Dana diterima</span>
+                  <span className="text-green-600">{formatIDR(receivedAmount)}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

@@ -4,9 +4,9 @@ import { supabase } from "@/lib/supabase";
 import { formatIDR, formatDate } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import {
-  Wallet, MousePointerClick, TrendingUp, ArrowUpFromLine, History, Gift,
-  ArrowRight, ArrowDownToLine, Clock, CheckCircle, Info,
-  Zap, Shield, Star, Users, ChevronRight, Package
+  MousePointerClick, TrendingUp, ArrowUpFromLine,
+  ArrowDownToLine, Clock, CheckCircle, Info,
+  Zap, Shield, Star, Users, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,26 +18,18 @@ interface Stats {
   pending_deposit: number;
 }
 
-interface RecentClick {
+interface Withdrawal {
   id: string;
-  earned_amount: number;
-  clicked_at: string;
-  ads: { title: string } | null;
-}
-
-interface RecentTx {
-  id: string;
-  type: string;
   amount: number;
   status: string;
   created_at: string;
+  profiles: { full_name: string | null; username: string | null } | null;
 }
 
 const Dashboard: React.FC = () => {
   const { profile, refreshProfile } = useAuth();
   const [stats, setStats] = useState<Stats>({ total_earned: 0, today_clicks: 0, total_clicks: 0, pending_deposit: 0 });
-  const [recentClicks, setRecentClicks] = useState<RecentClick[]>([]);
-  const [recentTx, setRecentTx] = useState<RecentTx[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,14 +44,16 @@ const Dashboard: React.FC = () => {
       const today = new Date().toISOString().split("T")[0];
 
       try {
-        const [clicksRes, todayClicksRes, txRes, allTxRes] = await Promise.all([
-          supabase.from("ad_clicks").select("id, earned_amount, clicked_at, ads(title)").eq("user_id", profile.id).order("clicked_at", { ascending: false }).limit(5),
+        const [todayClicksRes, txRes, withdrawalsRes] = await Promise.all([
           supabase.from("ad_clicks").select("id", { count: "exact", head: true }).eq("user_id", profile.id).gte("clicked_at", today),
           supabase.from("transactions").select("type, amount, status").eq("user_id", profile.id),
-          supabase.from("transactions").select("id, type, amount, status, created_at").eq("user_id", profile.id).order("created_at", { ascending: false }).limit(5),
+          supabase.from("transactions")
+            .select("id, amount, status, created_at, profiles(full_name, username)")
+            .eq("type", "withdrawal")
+            .order("created_at", { ascending: false })
+            .limit(15),
         ]);
 
-        const clicks = clicksRes.data || [];
         const allTx = txRes.data || [];
         const totalEarned = allTx.filter(t => t.type === "commission" && t.status === "success").reduce((s, t) => s + Number(t.amount), 0);
         const pendingDeposit = allTx.filter(t => t.type === "deposit" && t.status === "pending").reduce((s, t) => s + Number(t.amount), 0);
@@ -67,11 +61,10 @@ const Dashboard: React.FC = () => {
         setStats({
           total_earned: totalEarned,
           today_clicks: todayClicksRes.count || 0,
-          total_clicks: clicks.length,
+          total_clicks: 0,
           pending_deposit: pendingDeposit,
         });
-        setRecentClicks(clicks as unknown as RecentClick[]);
-        setRecentTx(allTxRes.data || []);
+        setWithdrawals(withdrawalsRes.data as unknown as Withdrawal[] || []);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       }
@@ -82,9 +75,6 @@ const Dashboard: React.FC = () => {
 
     fetchData();
   }, [profile?.id]);
-
-  const txTypeLabel: Record<string, string> = { deposit: "Deposit", withdrawal: "Penarikan", commission: "Komisi Klik", plan_purchase: "Beli Paket" };
-  const txTypeColor = (type: string) => type === "commission" ? "text-green-600" : type === "deposit" ? "text-blue-600" : "text-amber-600";
 
   if (loading) {
     return (
@@ -235,52 +225,48 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Transactions */}
+      {/* Withdrawals Feed */}
       <div className="bg-card rounded-2xl border border-border shadow-card">
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-semibold text-foreground text-sm">Transaksi Terbaru</h3>
-          <Link to="/dashboard/transactions">
-            <Button variant="ghost" size="sm" className="text-primary gap-1 h-7 text-xs">
-              Semua <ArrowRight className="w-3 h-3" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <ArrowUpFromLine className="w-4 h-4 text-amber-500" />
+            <h3 className="font-semibold text-foreground text-sm">Penarikan Member</h3>
+          </div>
+          <Badge className="bg-green-500/10 text-green-600 border-green-200 text-[10px]">Live</Badge>
         </div>
         <div className="divide-y divide-border">
-          {recentTx.length === 0 ? (
+          {withdrawals.length === 0 ? (
             <div className="p-8 text-center">
-              <History className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Belum ada transaksi</p>
-              <Link to="/dashboard/deposit">
-                <Button size="sm" className="mt-3 h-8 text-xs">Deposit Sekarang</Button>
-              </Link>
+              <ArrowUpFromLine className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Belum ada penarikan</p>
             </div>
           ) : (
-            recentTx.map(tx => (
-              <div key={tx.id} className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center
-                    ${tx.type === "deposit" ? "bg-blue-500/10" : tx.type === "commission" ? "bg-green-500/10" : tx.type === "plan_purchase" ? "bg-purple-500/10" : "bg-amber-500/10"}`}>
-                    {tx.type === "deposit" && <ArrowDownToLine className="w-3.5 h-3.5 text-blue-500" />}
-                    {tx.type === "commission" && <MousePointerClick className="w-3.5 h-3.5 text-green-500" />}
-                    {tx.type === "withdrawal" && <ArrowUpFromLine className="w-3.5 h-3.5 text-amber-500" />}
-                    {tx.type === "plan_purchase" && <Package className="w-3.5 h-3.5 text-purple-500" />}
+            withdrawals.map(w => {
+              const name = w.profiles?.full_name || w.profiles?.username || "Member";
+              const maskedName = name.length > 3
+                ? name.slice(0, 2) + "***" + name.slice(-1)
+                : name[0] + "***";
+              return (
+                <div key={w.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center shrink-0">
+                      <span className="text-[11px] font-bold text-white">{name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">{maskedName} melakukan penarikan</p>
+                      <p className="text-[10px] text-muted-foreground">{formatDate(w.created_at)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-medium text-foreground">{txTypeLabel[tx.type] || tx.type}</p>
-                    <p className="text-[10px] text-muted-foreground">{formatDate(tx.created_at)}</p>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-amber-600">{formatIDR(w.amount)}</p>
+                    <Badge className={`text-[10px] h-4 px-1.5 ${w.status === "success" ? "bg-green-500/10 text-green-600 border-green-200" : w.status === "pending" ? "bg-amber-500/10 text-amber-600 border-amber-200" : "bg-destructive/10 text-destructive border-destructive/20"}`}>
+                      {w.status === "success" ? <CheckCircle className="w-2.5 h-2.5 mr-0.5" /> : w.status === "pending" ? <Clock className="w-2.5 h-2.5 mr-0.5" /> : null}
+                      {w.status === "success" ? "Berhasil" : w.status === "pending" ? "Pending" : "Gagal"}
+                    </Badge>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-sm font-bold ${txTypeColor(tx.type)}`}>
-                    {tx.type === "withdrawal" ? "-" : "+"}{formatIDR(tx.amount)}
-                  </p>
-                  <Badge className={`text-[10px] h-4 px-1.5 ${tx.status === "success" ? "bg-green-500/10 text-green-600 border-green-200" : tx.status === "pending" ? "bg-amber-500/10 text-amber-600 border-amber-200" : "bg-destructive/10 text-destructive border-destructive/20"}`}>
-                    {tx.status === "success" ? <CheckCircle className="w-2.5 h-2.5 mr-0.5" /> : tx.status === "pending" ? <Clock className="w-2.5 h-2.5 mr-0.5" /> : null}
-                    {tx.status === "success" ? "Berhasil" : tx.status === "pending" ? "Pending" : "Gagal"}
-                  </Badge>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

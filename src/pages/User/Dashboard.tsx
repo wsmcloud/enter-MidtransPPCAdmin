@@ -23,7 +23,8 @@ interface Withdrawal {
   amount: number;
   status: string;
   created_at: string;
-  profiles: { full_name: string | null; username: string | null } | null;
+  user_id: string;
+  profile_name?: string;
 }
 
 const Dashboard: React.FC = () => {
@@ -44,15 +45,33 @@ const Dashboard: React.FC = () => {
       const today = new Date().toISOString().split("T")[0];
 
       try {
-        const [todayClicksRes, txRes, withdrawalsRes] = await Promise.all([
+        const [todayClicksRes, txRes, wdRes] = await Promise.all([
           supabase.from("ad_clicks").select("id", { count: "exact", head: true }).eq("user_id", profile.id).gte("clicked_at", today),
           supabase.from("transactions").select("type, amount, status").eq("user_id", profile.id),
-          supabase.from("transactions")
-            .select("id, amount, status, created_at, profiles(full_name, username)")
-            .eq("type", "withdrawal")
+          supabase.from("withdrawal_requests")
+            .select("id, amount, status, created_at, user_id")
             .order("created_at", { ascending: false })
             .limit(15),
         ]);
+
+        // Fetch profiles for withdrawal users
+        const wdData = wdRes.data || [];
+        const userIds = [...new Set(wdData.map(w => w.user_id))];
+        const profileMap: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from("profiles")
+            .select("id, full_name, username")
+            .in("id", userIds);
+          (profilesData || []).forEach(p => {
+            profileMap[p.id] = p.full_name || p.username || "Member";
+          });
+        }
+
+        const merged: Withdrawal[] = wdData.map(w => ({
+          ...w,
+          profile_name: profileMap[w.user_id] || "Member",
+        }));
 
         const allTx = txRes.data || [];
         const totalEarned = allTx.filter(t => t.type === "commission" && t.status === "success").reduce((s, t) => s + Number(t.amount), 0);
@@ -64,7 +83,7 @@ const Dashboard: React.FC = () => {
           total_clicks: 0,
           pending_deposit: pendingDeposit,
         });
-        setWithdrawals(withdrawalsRes.data as unknown as Withdrawal[] || []);
+        setWithdrawals(merged);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       }
@@ -242,7 +261,7 @@ const Dashboard: React.FC = () => {
             </div>
           ) : (
             withdrawals.map(w => {
-              const name = w.profiles?.full_name || w.profiles?.username || "Member";
+              const name = w.profile_name || "Member";
               const maskedName = name.length > 3
                 ? name.slice(0, 2) + "***" + name.slice(-1)
                 : name[0] + "***";

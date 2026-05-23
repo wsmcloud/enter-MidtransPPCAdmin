@@ -5,7 +5,7 @@ import { cn, formatIDR } from "@/lib/utils";
 import {
   LayoutDashboard, MousePointerClick, Wallet, ArrowDownToLine,
   ArrowUpFromLine, History, User, LogOut, Menu, X, ChevronRight,
-  Bell, TrendingUp, Package, Gift
+  Bell, TrendingUp, Package, Gift, Smartphone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ const navItems = [
   { path: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
   { path: "/dashboard/withdraw", label: "Tarik Dana", icon: ArrowUpFromLine },
   { path: "/dashboard/transactions", label: "Riwayat", icon: History },
+  { path: "/dashboard/download", label: "Unduh Aplikasi", icon: Smartphone },
   { path: "/dashboard/profile", label: "Profil", icon: User },
 ];
 

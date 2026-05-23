@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Package, Megaphone, ArrowDownToLine,
   ArrowUpFromLine, History, LogOut, Menu, ChevronRight,
-  TrendingUp, Shield
+  TrendingUp, Shield, Smartphone
 } from "lucide-react";
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { path: "/admin/deposits", label: "Kelola Deposit", icon: ArrowDownToLine },
   { path: "/admin/withdrawals", label: "Kelola Penarikan", icon: ArrowUpFromLine },
   { path: "/admin/transactions", label: "Semua Transaksi", icon: History },
+  { path: "/admin/downloads", label: "Unduh Aplikasi", icon: Smartphone },
 ];
 
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {

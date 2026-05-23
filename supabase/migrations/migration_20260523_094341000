@@ -1,0 +1,31 @@
+
+-- App releases table
+CREATE TABLE IF NOT EXISTS app_releases (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  version VARCHAR(50) NOT NULL,
+  file_url TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  file_size BIGINT DEFAULT 0,
+  release_notes TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE app_releases ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admin manage releases" ON app_releases FOR ALL USING (is_admin());
+CREATE POLICY "Public read releases" ON app_releases FOR SELECT USING (true);
+
+-- Storage bucket for APK downloads
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('downloads', 'downloads', true, 104857600, ARRAY['application/vnd.android.package-archive', 'application/octet-stream'])
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Public read downloads" ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'downloads');
+
+CREATE POLICY "Admin upload downloads" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'downloads' AND (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+
+CREATE POLICY "Admin delete downloads" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'downloads' AND (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');

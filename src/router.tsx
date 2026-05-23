@@ -24,6 +24,8 @@ import AdsManagePage from "./pages/Admin/AdsManagePage";
 import DepositsPage from "./pages/Admin/DepositsPage";
 import WithdrawalsPage from "./pages/Admin/WithdrawalsPage";
 import AdminTransactionsPage from "./pages/Admin/TransactionsPage";
+import DownloadsPage from "./pages/Admin/DownloadsPage";
+import DownloadPage from "./pages/User/DownloadPage";
 
 export const routers = [
   { path: "/", element: <Navigate to="/dashboard" replace /> },
@@ -96,6 +98,15 @@ export const routers = [
     ),
   },
 
+  {
+    path: "/dashboard/download",
+    element: (
+      <ProtectedRoute>
+        <UserLayout><DownloadPage /></UserLayout>
+      </ProtectedRoute>
+    ),
+  },
+
   // Admin routes
   {
     path: "/admin",
@@ -150,6 +161,15 @@ export const routers = [
     element: (
       <ProtectedRoute requireAdmin>
         <AdminLayout><AdminTransactionsPage /></AdminLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  {
+    path: "/admin/downloads",
+    element: (
+      <ProtectedRoute requireAdmin>
+        <AdminLayout><DownloadsPage /></AdminLayout>
       </ProtectedRoute>
     ),
   },

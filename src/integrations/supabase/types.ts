@@ -3219,6 +3219,39 @@ export type Database = {
           },
         ]
       }
+      app_releases: {
+        Row: {
+          created_at: string | null
+          file_path: string
+          file_size: number | null
+          file_url: string
+          id: string
+          is_active: boolean | null
+          release_notes: string | null
+          version: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_path: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          is_active?: boolean | null
+          release_notes?: string | null
+          version: string
+        }
+        Update: {
+          created_at?: string | null
+          file_path?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          is_active?: boolean | null
+          release_notes?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           commission_per_click: number

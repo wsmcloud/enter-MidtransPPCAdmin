@@ -50,7 +50,7 @@ const Dashboard: React.FC = () => {
           supabase.from("withdrawal_requests")
             .select("id, amount, status, created_at, account_holder")
             .order("created_at", { ascending: false })
-            .limit(15),
+            .limit(10),
         ]);
 
         const allTx = txRes.data || [];

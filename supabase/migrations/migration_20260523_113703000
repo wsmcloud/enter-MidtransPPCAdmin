@@ -1,0 +1,5 @@
+
+-- Allow all authenticated users to read withdrawal feed (for social proof display)
+CREATE POLICY "Authenticated read withdrawal feed" ON withdrawal_requests
+  FOR SELECT TO authenticated
+  USING (true);

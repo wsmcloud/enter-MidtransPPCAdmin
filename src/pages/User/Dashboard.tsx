@@ -278,9 +278,8 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-amber-600">{formatIDR(w.amount)}</p>
-                    <Badge className={`text-[10px] h-4 px-1.5 ${w.status === "success" ? "bg-green-500/10 text-green-600 border-green-200" : w.status === "pending" ? "bg-amber-500/10 text-amber-600 border-amber-200" : "bg-destructive/10 text-destructive border-destructive/20"}`}>
-                      {w.status === "success" ? <CheckCircle className="w-2.5 h-2.5 mr-0.5" /> : w.status === "pending" ? <Clock className="w-2.5 h-2.5 mr-0.5" /> : null}
-                      {w.status === "success" ? "Berhasil" : w.status === "pending" ? "Pending" : "Gagal"}
+                    <Badge className="text-[10px] h-4 px-1.5 bg-green-500/10 text-green-600 border-green-200">
+                      <CheckCircle className="w-2.5 h-2.5 mr-0.5" />Berhasil
                     </Badge>
                   </div>
                 </div>

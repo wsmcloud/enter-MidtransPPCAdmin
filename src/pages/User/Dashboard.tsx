@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import {
   MousePointerClick, TrendingUp, ArrowUpFromLine,
   ArrowDownToLine, Clock, CheckCircle, Info,
-  Zap, Shield, Star, Users, ChevronRight
+  Zap, Shield, Star, Users, ChevronRight, Gift
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

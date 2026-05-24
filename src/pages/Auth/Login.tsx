@@ -200,12 +200,19 @@ const Login: React.FC = () => {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            Belum punya akun?{" "}
-            <Link to="/register" className="text-primary font-medium hover:underline">
-              Daftar sekarang
-            </Link>
-          </p>
+          <div className="mt-6 space-y-3 text-center text-sm">
+            <div>
+              <Link to="/forgot-password" className="text-muted-foreground hover:text-primary hover:underline">
+                Lupa password?
+              </Link>
+            </div>
+            <p className="text-muted-foreground">
+              Belum punya akun?{" "}
+              <Link to="/register" className="text-primary font-medium hover:underline">
+                Daftar sekarang
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

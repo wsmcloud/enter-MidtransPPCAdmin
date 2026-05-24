@@ -48,6 +48,43 @@ const WithdrawalsPage: React.FC = () => {
     await supabase.from("withdrawal_requests").update({ status: "approved", processed_at: new Date().toISOString() }).eq("id", req.id);
     await supabase.from("transactions").update({ status: "success" }).eq("user_id", req.user_id).eq("type", "withdrawal").eq("status", "pending");
 
+    // Send approval notification email
+    if (req.profiles?.email) {
+      supabase.functions.invoke("send-email", {
+        body: {
+          to: req.profiles.email,
+          toName: req.profiles.full_name,
+          subject: "Penarikan Dana Disetujui - IklanCuan",
+          htmlContent: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+              <div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;text-align:center;">
+                <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:bold;">Penarikan Disetujui!</h1>
+                <p style="color:#dcfce7;margin:8px 0 0;font-size:14px;">IklanCuan</p>
+              </div>
+              <div style="padding:32px;">
+                <p style="color:#374151;font-size:16px;margin:0 0 16px;">Halo <strong>${req.profiles.full_name}</strong>,</p>
+                <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
+                  Permintaan penarikan dana Anda telah <strong style="color:#16a34a;">disetujui</strong>. Dana akan segera dikirim ke rekening yang terdaftar.
+                </p>
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:0 0 16px;">
+                  <table style="width:100%;font-size:14px;">
+                    <tr><td style="color:#6b7280;padding:4px 0;">Jumlah</td><td style="text-align:right;font-weight:bold;color:#16a34a;">Rp ${req.amount.toLocaleString("id-ID")}</td></tr>
+                    <tr><td style="color:#6b7280;padding:4px 0;">Bank</td><td style="text-align:right;font-weight:bold;color:#374151;">${req.bank_name}</td></tr>
+                    <tr><td style="color:#6b7280;padding:4px 0;">No. Rekening</td><td style="text-align:right;font-weight:bold;color:#374151;">${req.account_number}</td></tr>
+                    <tr><td style="color:#6b7280;padding:4px 0;">Atas Nama</td><td style="text-align:right;font-weight:bold;color:#374151;">${req.account_holder}</td></tr>
+                  </table>
+                </div>
+                <p style="color:#9ca3af;font-size:13px;margin:0;">Proses transfer mungkin membutuhkan 1-3 hari kerja tergantung kebijakan bank.</p>
+              </div>
+              <div style="background:#f9fafb;padding:16px;text-align:center;border-top:1px solid #e5e7eb;">
+                <p style="color:#9ca3af;font-size:12px;margin:0;">IklanCuan &mdash; otp@iklancuan.com</p>
+              </div>
+            </div>
+          `,
+        },
+      }).catch(console.error);
+    }
+
     toast({ title: `Penarikan ${formatIDR(req.amount)} disetujui` });
     fetchRequests();
     setProcessingId(null);
@@ -65,6 +102,43 @@ const WithdrawalsPage: React.FC = () => {
 
     await supabase.from("withdrawal_requests").update({ status: "rejected", admin_notes: adminNotes || null, processed_at: new Date().toISOString() }).eq("id", rejectDialog.id);
     await supabase.from("transactions").update({ status: "failed" }).eq("user_id", rejectDialog.user_id).eq("type", "withdrawal").eq("status", "pending");
+
+    // Send rejection notification email
+    if (rejectDialog.profiles?.email) {
+      supabase.functions.invoke("send-email", {
+        body: {
+          to: rejectDialog.profiles.email,
+          toName: rejectDialog.profiles.full_name,
+          subject: "Informasi Penarikan Dana - IklanCuan",
+          htmlContent: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+              <div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:32px;text-align:center;">
+                <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:bold;">Penarikan Ditolak</h1>
+                <p style="color:#fecaca;margin:8px 0 0;font-size:14px;">IklanCuan</p>
+              </div>
+              <div style="padding:32px;">
+                <p style="color:#374151;font-size:16px;margin:0 0 16px;">Halo <strong>${rejectDialog.profiles.full_name}</strong>,</p>
+                <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
+                  Permintaan penarikan dana Anda sebesar <strong>Rp ${rejectDialog.amount.toLocaleString("id-ID")}</strong> tidak dapat diproses.
+                </p>
+                ${adminNotes ? `
+                <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:0 0 24px;">
+                  <p style="color:#991b1b;font-size:13px;margin:0;font-weight:bold;">Alasan:</p>
+                  <p style="color:#dc2626;font-size:14px;margin:4px 0 0;">${adminNotes}</p>
+                </div>
+                ` : ""}
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;">
+                  <p style="color:#16a34a;font-size:13px;margin:0;">Saldo Anda telah dikembalikan ke akun. Anda dapat mengajukan penarikan kembali setelah memperbarui data rekening.</p>
+                </div>
+              </div>
+              <div style="background:#f9fafb;padding:16px;text-align:center;border-top:1px solid #e5e7eb;">
+                <p style="color:#9ca3af;font-size:12px;margin:0;">IklanCuan &mdash; otp@iklancuan.com</p>
+              </div>
+            </div>
+          `,
+        },
+      }).catch(console.error);
+    }
 
     toast({ title: "Penarikan ditolak dan saldo dikembalikan" });
     setRejectDialog(null);

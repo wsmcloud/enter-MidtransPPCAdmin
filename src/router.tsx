@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
+import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import UserLayout from "./components/layout/UserLayout";
 import AdminLayout from "./components/layout/AdminLayout";
@@ -31,6 +32,7 @@ export const routers = [
   { path: "/", element: <Navigate to="/dashboard" replace /> },
   { path: "/login", element: <Login /> },
   { path: "/register", element: <Register /> },
+  { path: "/forgot-password", element: <ForgotPassword /> },
 
   // User routes
   {

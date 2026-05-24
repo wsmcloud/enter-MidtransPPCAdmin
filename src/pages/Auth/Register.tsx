@@ -130,6 +130,47 @@ const Register: React.FC = () => {
     }
 
     toast({ title: "Akun berhasil diaktifkan!", description: "Selamat datang!" });
+
+    // Fire-and-forget welcome email
+    supabase.functions.invoke("send-email", {
+      body: {
+        to: form.email,
+        toName: form.full_name,
+        subject: "Selamat Datang di IklanCuan!",
+        htmlContent: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:32px;text-align:center;">
+              <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:bold;">Selamat Datang di IklanCuan!</h1>
+              <p style="color:#fef3c7;margin:8px 0 0;font-size:14px;">Hasilkan uang dari klik iklan setiap hari</p>
+            </div>
+            <div style="padding:32px;">
+              <p style="color:#374151;font-size:16px;margin:0 0 16px;">Halo <strong>${form.full_name}</strong>,</p>
+              <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
+                Akun kamu di IklanCuan telah berhasil diaktifkan. Mulai hasilkan uang dengan mengklik iklan setiap hari!
+              </p>
+              <div style="background:#fef9f0;border:1px solid #fde68a;border-radius:8px;padding:16px;margin:0 0 24px;">
+                <p style="color:#92400e;font-size:13px;margin:0;font-weight:bold;">Cara mulai:</p>
+                <ol style="color:#92400e;font-size:13px;margin:8px 0 0;padding-left:20px;line-height:1.8;">
+                  <li>Login ke akun kamu</li>
+                  <li>Pilih paket iklan yang sesuai</li>
+                  <li>Klik iklan dan tunggu hitungan waktu</li>
+                  <li>Saldo langsung bertambah!</li>
+                </ol>
+              </div>
+              <div style="text-align:center;">
+                <a href="https://www.iklancuan.com/dashboard" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:bold;font-size:14px;display:inline-block;">
+                  Mulai Sekarang
+                </a>
+              </div>
+            </div>
+            <div style="background:#f9fafb;padding:16px;text-align:center;border-top:1px solid #e5e7eb;">
+              <p style="color:#9ca3af;font-size:12px;margin:0;">IklanCuan &mdash; otp@iklancuan.com</p>
+            </div>
+          </div>
+        `,
+      },
+    }).catch(console.error);
+
     navigate("/dashboard");
   };
 

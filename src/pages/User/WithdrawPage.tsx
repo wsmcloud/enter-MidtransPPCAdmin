@@ -23,7 +23,7 @@ interface WithdrawRequest {
 
 const BANKS = ["BCA", "BNI", "BRI", "Mandiri", "BSI", "CIMB Niaga", "Danamon", "Permata", "BTN", "OVO", "GoPay", "DANA"];
 
-const MIN_WITHDRAW = 10000;
+const MIN_WITHDRAW = 15000;
 const WITHDRAW_FEE = 4500;
 
 const WithdrawPage: React.FC = () => {
@@ -177,7 +177,7 @@ const WithdrawPage: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>Nomor Rekening</Label>
+            <Label>No Rekening / E-Wallet</Label>
             <Input
               placeholder="Contoh: 1234567890"
               value={form.account_number}

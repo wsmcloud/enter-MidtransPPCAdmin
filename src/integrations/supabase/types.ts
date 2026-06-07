@@ -3252,6 +3252,27 @@ export type Database = {
         }
         Relationships: []
       }
+      fake_withdrawals: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       password_reset_otps: {
         Row: {
           created_at: string | null

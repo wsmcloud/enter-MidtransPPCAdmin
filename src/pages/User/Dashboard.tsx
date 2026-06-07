@@ -21,7 +21,6 @@ interface Stats {
 interface Withdrawal {
   id: string;
   amount: number;
-  status: string;
   created_at: string;
   account_holder: string;
 }
@@ -44,13 +43,17 @@ const Dashboard: React.FC = () => {
       const today = new Date().toISOString().split("T")[0];
 
       try {
-        const [todayClicksRes, txRes, wdRes] = await Promise.all([
+        const [todayClicksRes, txRes, wdRes, fakeWdRes] = await Promise.all([
           supabase.from("ad_clicks").select("id", { count: "exact", head: true }).eq("user_id", profile.id).gte("clicked_at", today),
           supabase.from("transactions").select("type, amount, status").eq("user_id", profile.id),
           supabase.from("withdrawal_requests")
-            .select("id, amount, status, created_at, account_holder")
+            .select("id, amount, created_at, account_holder")
             .order("created_at", { ascending: false })
-            .limit(10),
+            .limit(20),
+          supabase.from("fake_withdrawals")
+            .select("id, name, amount, created_at")
+            .order("created_at", { ascending: false })
+            .limit(20),
         ]);
 
         const allTx = txRes.data || [];
@@ -63,7 +66,24 @@ const Dashboard: React.FC = () => {
           total_clicks: 0,
           pending_deposit: pendingDeposit,
         });
-        setWithdrawals(wdRes.data as unknown as Withdrawal[] || []);
+
+        // Merge real + fake withdrawals, sort by date, take top 10
+        const realWds: Withdrawal[] = (wdRes.data || []).map(w => ({
+          id: w.id,
+          amount: w.amount,
+          created_at: w.created_at,
+          account_holder: w.account_holder,
+        }));
+        const fakeWds: Withdrawal[] = (fakeWdRes.data || []).map(w => ({
+          id: `fake-${w.id}`,
+          amount: w.amount,
+          created_at: w.created_at,
+          account_holder: w.name,
+        }));
+        const combined = [...realWds, ...fakeWds]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 10);
+        setWithdrawals(combined);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       }

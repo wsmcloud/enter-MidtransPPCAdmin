@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS fake_withdrawals (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL,
+  amount integer NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE fake_withdrawals ENABLE ROW LEVEL SECURITY;
+
+-- All authenticated users can read (needed for dashboard feed)
+CREATE POLICY "Authenticated read fake withdrawals" ON fake_withdrawals
+  FOR SELECT TO authenticated USING (true);
+
+-- Only admin can insert/delete
+CREATE POLICY "Admin manage fake withdrawals" ON fake_withdrawals
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );

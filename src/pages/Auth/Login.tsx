@@ -107,15 +107,14 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
+        {/* Hero Banner */}
+        <div className="mb-6">
           <img
-            src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/c2c9ca85-6f2c-45.png"
-            alt="iklancuan.com"
+            src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/4396f677-a978-42.png"
+            alt="IklanCuan - Klik Iklan Dapat Uang"
             crossOrigin="anonymous"
-            className="w-40 h-40 object-contain mb-2"
+            className="w-full rounded-2xl object-cover shadow-lg"
           />
-          <p className="text-muted-foreground text-sm">Masuk ke akun Anda</p>
         </div>
 
         {verified && (

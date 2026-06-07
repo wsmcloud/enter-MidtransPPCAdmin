@@ -25,7 +25,7 @@ const SplashScreen: React.FC = () => {
         src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/4c584179-30da-4a.png"
         alt="IklanCuan"
         crossOrigin="anonymous"
-        style={{ maxWidth: "100%", maxHeight: "100vh", width: "100%", height: "100%", objectFit: "contain" }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
       />
     </div>
   );

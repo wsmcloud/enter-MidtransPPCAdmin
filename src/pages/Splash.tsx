@@ -56,7 +56,7 @@ const Splash: React.FC = () => {
       <div className="w-full max-w-md h-full relative overflow-hidden">
         {/* Full screen splash image */}
         <img
-          src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/3282903e-80f8-48.png"
+          src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100054970/3282903e-80f8-48.png?v=2"
           alt="IklanCuan - Klik Iklan Dapat Uang"
           crossOrigin="anonymous"
           className="w-full h-full object-cover object-top"

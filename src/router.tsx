@@ -1,5 +1,5 @@
-import { Navigate } from "react-router-dom";
 import NotFound from "./pages/NotFound";
+import Splash from "./pages/Splash";
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
 import ForgotPassword from "./pages/Auth/ForgotPassword";
@@ -29,7 +29,7 @@ import DownloadsPage from "./pages/Admin/DownloadsPage";
 import DownloadPage from "./pages/User/DownloadPage";
 
 export const routers = [
-  { path: "/", element: <Navigate to="/dashboard" replace /> },
+  { path: "/", element: <Splash /> },
   { path: "/login", element: <Login /> },
   { path: "/register", element: <Register /> },
   { path: "/forgot-password", element: <ForgotPassword /> },

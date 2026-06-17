@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn, formatIDR } from "@/lib/utils";
 import {
-  LayoutDashboard, MousePointerClick, Wallet, ArrowDownToLine,
+  LayoutDashboard, MousePointerClick, Wallet, 
   ArrowUpFromLine, History, User, LogOut, Menu, X, ChevronRight,
   Bell, TrendingUp, Package, Gift, Smartphone
 } from "lucide-react";
@@ -15,7 +15,6 @@ const navItems = [
   { path: "/dashboard/ads", label: "Klik Iklan", icon: MousePointerClick },
   { path: "/dashboard/plans", label: "Paket", icon: Package },
   { path: "/dashboard/referral", label: "Referral", icon: Gift },
-  { path: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
   { path: "/dashboard/withdraw", label: "Tarik Dana", icon: ArrowUpFromLine },
   { path: "/dashboard/transactions", label: "Riwayat", icon: History },
   { path: "/dashboard/download", label: "Unduh Aplikasi", icon: Smartphone },

@@ -23,7 +23,7 @@ interface WithdrawRequest {
 
 const BANKS = ["BCA", "BNI", "BRI", "Mandiri", "BSI", "CIMB Niaga", "Danamon", "Permata", "BTN", "OVO", "GoPay", "DANA"];
 
-const MIN_WITHDRAW = 15000;
+const MIN_WITHDRAW = 50000;
 const WITHDRAW_FEE = 4500;
 
 const WithdrawPage: React.FC = () => {
@@ -70,6 +70,21 @@ const WithdrawPage: React.FC = () => {
 
     if (!form.bank_name || !form.account_number || !form.account_holder) {
       toast({ title: "Lengkapi semua data rekening", variant: "destructive" });
+      return;
+    }
+
+    // Check daily withdrawal limit (1x per day)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const { data: todayWds } = await supabase
+      .from("withdrawal_requests")
+      .select("id")
+      .eq("user_id", profile!.id)
+      .gte("created_at", todayStart.toISOString())
+      .limit(1);
+
+    if (todayWds && todayWds.length > 0) {
+      toast({ title: "Batas harian tercapai", description: "Anda hanya dapat melakukan 1 penarikan per hari.", variant: "destructive" });
       return;
     }
 

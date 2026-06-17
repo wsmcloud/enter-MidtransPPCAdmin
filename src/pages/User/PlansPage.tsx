@@ -1,17 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { formatIDR } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import {
-  CheckCircle, ArrowDownToLine, Loader2, AlertCircle,
-  CalendarDays, Sparkles, MousePointerClick, Zap, Star, Crown, Gem, Flame, Clock
+  CheckCircle, Loader2, AlertCircle,
+  CalendarDays, Sparkles, MousePointerClick, Zap, Star, Crown, Gem, Flame, Clock, CreditCard
 } from "lucide-react";
 
 interface Plan {
@@ -80,7 +78,6 @@ const getTheme = (i: number) => PLAN_THEMES[Math.min(i, PLAN_THEMES.length - 1)]
 
 const UserPlansPage: React.FC = () => {
   const { profile, refreshProfile } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [userPlans, setUserPlans] = useState<UserPlan[]>([]);
@@ -88,6 +85,7 @@ const UserPlansPage: React.FC = () => {
   const [purchasing, setPurchasing] = useState(false);
   const [confirmPlan, setConfirmPlan] = useState<Plan | null>(null);
   const [confirmIdx, setConfirmIdx] = useState(0);
+  const snapScriptRef = useRef<HTMLScriptElement | null>(null);
 
   const ensureFreePlan = async (currentPlans: Plan[]) => {
     if (!profile) return false;
@@ -143,33 +141,86 @@ const UserPlansPage: React.FC = () => {
 
   const openConfirm = (plan: Plan, idx: number) => { setConfirmPlan(plan); setConfirmIdx(idx); };
 
+  const loadSnapScript = (clientKey: string, isProduction: boolean) => {
+    if (snapScriptRef.current) snapScriptRef.current.remove();
+    const script = document.createElement("script");
+    script.src = isProduction
+      ? "https://app.midtrans.com/snap/snap.js"
+      : "https://app.sandbox.midtrans.com/snap/snap.js";
+    script.setAttribute("data-client-key", clientKey);
+    document.head.appendChild(script);
+    snapScriptRef.current = script;
+  };
+
   const handlePurchase = async () => {
     if (!confirmPlan || !profile) return;
     setPurchasing(true);
+
     try {
-      if (confirmPlan.price > 0 && (profile.balance || 0) < confirmPlan.price) {
-        toast({ title: "Saldo tidak cukup", description: "Silakan top up terlebih dahulu.", variant: "destructive" });
-        setConfirmPlan(null); setPurchasing(false); navigate("/dashboard/deposit"); return;
-      }
-      const expiresAt = confirmPlan.duration_days > 0
-        ? new Date(Date.now() + confirmPlan.duration_days * 86400000).toISOString() : null;
-      const { error: upErr } = await supabase.from("user_plans").insert({
-        user_id: profile.id, plan_id: confirmPlan.id, expires_at: expiresAt, is_active: true,
-      });
-      if (upErr) throw upErr;
-      if (confirmPlan.price > 0) {
-        const newBalance = (profile.balance || 0) - confirmPlan.price;
-        await supabase.from("profiles").update({ balance: newBalance, plan_id: confirmPlan.id, plan_expires_at: expiresAt }).eq("id", profile.id);
-        await supabase.from("transactions").insert({
-          user_id: profile.id, type: "plan_purchase", amount: confirmPlan.price, status: "success",
-          notes: `Pembelian paket ${confirmPlan.name}${confirmPlan.duration_days > 0 ? ` (${confirmPlan.duration_days} hari)` : ""}`,
+      // Free plan — activate directly
+      if (confirmPlan.price === 0) {
+        const expiresAt = confirmPlan.duration_days > 0
+          ? new Date(Date.now() + confirmPlan.duration_days * 86400000).toISOString() : null;
+        const { error: upErr } = await supabase.from("user_plans").insert({
+          user_id: profile.id, plan_id: confirmPlan.id, expires_at: expiresAt, is_active: true,
         });
+        if (upErr) throw upErr;
+        await supabase.from("profiles").update({ plan_id: confirmPlan.id, plan_expires_at: expiresAt }).eq("id", profile.id);
+        toast({ title: "Paket gratis berhasil diaktifkan!" });
+        setConfirmPlan(null);
+        await refreshProfile();
+        fetchData();
+        setPurchasing(false);
+        return;
       }
-      toast({ title: "Paket berhasil diaktifkan!", description: `Paket ${confirmPlan.name} sudah aktif.` });
+
+      // Paid plan — use Midtrans
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke("midtrans-plan-purchase", {
+        body: { plan_id: confirmPlan.id },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+
+      if (error || !data?.token) {
+        throw new Error(data?.error || "Gagal membuat transaksi pembayaran");
+      }
+
+      const orderId = data.order_id;
+      loadSnapScript(data.client_key, data.is_production);
+      await new Promise(r => setTimeout(r, 1500));
+
       setConfirmPlan(null);
-      await ensureFreePlan(plans);
-      await refreshProfile();
-      fetchData();
+
+      if (window.snap) {
+        window.snap.pay(data.token, {
+          onSuccess: async () => {
+            await new Promise(r => setTimeout(r, 2000));
+            const { data: activateData, error: activateError } = await supabase.functions.invoke("activate-plan", {
+              body: { order_id: orderId, plan_id: confirmPlan.id },
+              headers: { Authorization: `Bearer ${session?.access_token}` },
+            });
+            if (activateError || !activateData?.success) {
+              toast({ title: "Pembayaran diterima", description: "Paket sedang diaktifkan, mohon tunggu sebentar.", variant: "default" });
+            } else {
+              toast({ title: `Paket ${confirmPlan.name} berhasil diaktifkan!`, description: "Selamat! Nikmati fitur paket Anda." });
+            }
+            await refreshProfile();
+            fetchData();
+          },
+          onPending: () => {
+            toast({ title: "Pembayaran pending", description: "Selesaikan pembayaran Anda. Paket akan aktif setelah dikonfirmasi." });
+            fetchData();
+          },
+          onError: () => {
+            toast({ title: "Pembayaran gagal", variant: "destructive" });
+          },
+          onClose: () => {
+            toast({ title: "Pembayaran dibatalkan", description: "Silakan coba lagi jika ingin membeli paket." });
+          },
+        });
+      } else {
+        window.location.href = data.redirect_url;
+      }
     } catch (err: unknown) {
       toast({ title: "Pembelian gagal", description: err instanceof Error ? err.message : "Terjadi kesalahan", variant: "destructive" });
     } finally {
@@ -398,45 +449,32 @@ const UserPlansPage: React.FC = () => {
                 </div>
                 {confirmPlan.price > 0 && (
                   <div className="flex justify-between pt-2 border-t border-border mt-1">
-                    <span className="text-muted-foreground">Saldo Anda</span>
-                    <span className={`font-bold ${(profile?.balance || 0) < confirmPlan.price ? "text-red-500" : "text-green-600"}`}>
-                      {formatIDR(profile?.balance || 0)}
+                    <span className="text-muted-foreground font-semibold">Total bayar</span>
+                    <span className="font-bold text-foreground" style={{ color: confirmTheme.accent }}>
+                      {formatIDR(confirmPlan.price)}
                     </span>
                   </div>
                 )}
               </div>
             )}
 
-            {confirmPlan && confirmPlan.price > 0 && (profile?.balance || 0) < confirmPlan.price && (
-              <div className="bg-red-500/10 border border-red-200 rounded-lg p-3 flex items-start gap-2 mb-4">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <div className="text-xs">
-                  <p className="font-semibold text-red-700 dark:text-red-400">Saldo tidak cukup</p>
-                  <p className="text-red-600 dark:text-red-500">Silakan top up terlebih dahulu.</p>
-                </div>
-              </div>
-            )}
-
             <DialogFooter className="gap-2">
-              {confirmPlan && confirmPlan.price > 0 && (profile?.balance || 0) < confirmPlan.price ? (
-                <Button onClick={() => { setConfirmPlan(null); navigate("/dashboard/deposit"); }} className="w-full">
-                  <ArrowDownToLine className="w-3.5 h-3.5 mr-1.5" /> Top Up Saldo
-                </Button>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={() => setConfirmPlan(null)} disabled={purchasing} className="flex-1">
-                    Batal
-                  </Button>
-                  <button
-                    onClick={handlePurchase}
-                    disabled={purchasing}
-                    className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60 flex items-center justify-center gap-1.5"
-                    style={{ background: confirmTheme.gradient }}
-                  >
-                    {purchasing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Memproses...</> : "Konfirmasi Beli"}
-                  </button>
-                </>
-              )}
+              <Button variant="outline" onClick={() => setConfirmPlan(null)} disabled={purchasing} className="flex-1">
+                Batal
+              </Button>
+              <button
+                onClick={handlePurchase}
+                disabled={purchasing}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60 flex items-center justify-center gap-1.5"
+                style={{ background: confirmTheme.gradient }}
+              >
+                {purchasing
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Memproses...</>
+                  : confirmPlan?.price === 0
+                    ? "Aktifkan Gratis"
+                    : <><CreditCard className="w-3.5 h-3.5" />Bayar {formatIDR(confirmPlan?.price || 0)}</>
+                }
+              </button>
             </DialogFooter>
           </div>
         </DialogContent>

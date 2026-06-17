@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/dashboard/ads", label: "Klik Iklan", icon: MousePointerClick },
-  { path: "/dashboard/plans", label: "Paket", icon: Package },
+  { path: "/dashboard/plans", label: "Beli Paket", icon: Package },
   { path: "/dashboard/referral", label: "Referral", icon: Gift },
   { path: "/dashboard/withdraw", label: "Tarik Dana", icon: ArrowUpFromLine },
   { path: "/dashboard/transactions", label: "Riwayat", icon: History },

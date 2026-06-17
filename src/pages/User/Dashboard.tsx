@@ -5,8 +5,8 @@ import { formatIDR, formatDate } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import {
   MousePointerClick, TrendingUp, ArrowUpFromLine,
-  ArrowDownToLine, Clock, CheckCircle, Info,
-  Zap, Shield, Star, Users, ChevronRight, Gift
+  CheckCircle, Info,
+  Zap, Shield, Star, Users, ChevronRight, Gift, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,6 @@ interface Stats {
   total_earned: number;
   today_clicks: number;
   total_clicks: number;
-  pending_deposit: number;
 }
 
 interface Withdrawal {
@@ -27,7 +26,7 @@ interface Withdrawal {
 
 const Dashboard: React.FC = () => {
   const { profile, refreshProfile } = useAuth();
-  const [stats, setStats] = useState<Stats>({ total_earned: 0, today_clicks: 0, total_clicks: 0, pending_deposit: 0 });
+  const [stats, setStats] = useState<Stats>({ total_earned: 0, today_clicks: 0, total_clicks: 0 });
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,13 +57,11 @@ const Dashboard: React.FC = () => {
 
         const allTx = txRes.data || [];
         const totalEarned = allTx.filter(t => t.type === "commission" && t.status === "success").reduce((s, t) => s + Number(t.amount), 0);
-        const pendingDeposit = allTx.filter(t => t.type === "deposit" && t.status === "pending").reduce((s, t) => s + Number(t.amount), 0);
 
         setStats({
           total_earned: totalEarned,
           today_clicks: todayClicksRes.count || 0,
           total_clicks: 0,
-          pending_deposit: pendingDeposit,
         });
 
         // Merge real + fake withdrawals, sort by date, take top 10
@@ -118,24 +115,6 @@ const Dashboard: React.FC = () => {
         <p className="text-muted-foreground text-sm mt-0.5">Pantau penghasilan dan aktivitas IKLAN CUAN Anda.</p>
       </div>
 
-      {/* Pending Deposit Alert */}
-      {stats.pending_deposit > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
-          <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-amber-800 dark:text-amber-400">Deposit Menunggu Konfirmasi</p>
-            <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
-              {formatIDR(stats.pending_deposit)} sedang diproses. Saldo akan masuk setelah admin mengkonfirmasi.
-            </p>
-          </div>
-          <Link to="/dashboard/deposit">
-            <Button size="sm" variant="outline" className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-100">
-              Cek
-            </Button>
-          </Link>
-        </div>
-      )}
-
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-card rounded-2xl p-4 border border-border shadow-card col-span-2">
@@ -175,7 +154,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-3 gap-3">
         {[
           { to: "/dashboard/ads", icon: MousePointerClick, label: "Klik Iklan", color: "text-primary", bg: "bg-primary/10" },
-          { to: "/dashboard/deposit", icon: ArrowDownToLine, label: "Deposit", color: "text-green-500", bg: "bg-green-500/10" },
+          { to: "/dashboard/plans", icon: Package, label: "Beli Paket", color: "text-green-500", bg: "bg-green-500/10" },
           { to: "/dashboard/referral", icon: Gift, label: "Referral", color: "text-purple-500", bg: "bg-purple-500/10" },
         ].map(item => {
           const Icon = item.icon;
@@ -227,8 +206,7 @@ const Dashboard: React.FC = () => {
           <div className="bg-muted rounded-xl p-4">
             <p className="text-xs font-semibold text-foreground mb-3">Cara Kerja IKLAN CUAN:</p>
             {[
-              "Deposit saldo ke akun Anda",
-              "Pilih paket sesuai kebutuhan",
+              "Pilih dan beli paket sesuai kebutuhan",
               "Klik iklan yang tersedia setiap hari",
               "Komisi masuk otomatis ke saldo",
               "Tarik dana ke rekening bank kapan saja",

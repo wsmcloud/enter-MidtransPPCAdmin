@@ -1,0 +1,26 @@
+-- Refund balance for all PENDING withdrawal requests created today
+UPDATE profiles p
+SET balance = p.balance + wr.refund_amount
+FROM (
+  SELECT user_id, SUM(amount + 4500) AS refund_amount
+  FROM withdrawal_requests
+  WHERE created_at >= CURRENT_DATE
+    AND status = 'pending'
+  GROUP BY user_id
+) wr
+WHERE p.id = wr.user_id;
+
+-- Mark today's pending WD requests as rejected with system note
+UPDATE withdrawal_requests
+SET status = 'rejected',
+    admin_notes = 'Saldo dikembalikan otomatis oleh sistem',
+    processed_at = NOW()
+WHERE created_at >= CURRENT_DATE
+  AND status = 'pending';
+
+-- Also refund any transactions linked to these withdrawals
+UPDATE transactions
+SET status = 'failed'
+WHERE type = 'withdrawal'
+  AND status = 'pending'
+  AND created_at >= CURRENT_DATE;

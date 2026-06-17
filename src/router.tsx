@@ -10,7 +10,6 @@ import AdminLayout from "./components/layout/AdminLayout";
 // User pages
 import Dashboard from "./pages/User/Dashboard";
 import AdsPage from "./pages/User/AdsPage";
-import DepositPage from "./pages/User/DepositPage";
 import WithdrawPage from "./pages/User/WithdrawPage";
 import TransactionsPage from "./pages/User/TransactionsPage";
 import ProfilePage from "./pages/User/ProfilePage";
@@ -22,7 +21,6 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import UsersPage from "./pages/Admin/UsersPage";
 import PlansPage from "./pages/Admin/PlansPage";
 import AdsManagePage from "./pages/Admin/AdsManagePage";
-import DepositsPage from "./pages/Admin/DepositsPage";
 import WithdrawalsPage from "./pages/Admin/WithdrawalsPage";
 import AdminTransactionsPage from "./pages/Admin/TransactionsPage";
 import DownloadsPage from "./pages/Admin/DownloadsPage";
@@ -48,14 +46,6 @@ export const routers = [
     element: (
       <ProtectedRoute>
         <UserLayout><AdsPage /></UserLayout>
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/dashboard/deposit",
-    element: (
-      <ProtectedRoute>
-        <UserLayout><DepositPage /></UserLayout>
       </ProtectedRoute>
     ),
   },
@@ -139,14 +129,6 @@ export const routers = [
     element: (
       <ProtectedRoute requireAdmin>
         <AdminLayout><AdsManagePage /></AdminLayout>
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/admin/deposits",
-    element: (
-      <ProtectedRoute requireAdmin>
-        <AdminLayout><DepositsPage /></AdminLayout>
       </ProtectedRoute>
     ),
   },

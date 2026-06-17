@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, Users, Package, Megaphone, ArrowDownToLine,
+  LayoutDashboard, Users, Package, Megaphone,
   ArrowUpFromLine, History, LogOut, Menu, ChevronRight,
   TrendingUp, Shield, Smartphone
 } from "lucide-react";
@@ -13,7 +13,6 @@ const navItems = [
   { path: "/admin/users", label: "Manajemen User", icon: Users },
   { path: "/admin/plans", label: "Paket/Plan", icon: Package },
   { path: "/admin/ads", label: "Manajemen Iklan", icon: Megaphone },
-  { path: "/admin/deposits", label: "Kelola Deposit", icon: ArrowDownToLine },
   { path: "/admin/withdrawals", label: "Kelola Penarikan", icon: ArrowUpFromLine },
   { path: "/admin/transactions", label: "Semua Transaksi", icon: History },
   { path: "/admin/downloads", label: "Unduh Aplikasi", icon: Smartphone },

@@ -52,11 +52,18 @@ const WithdrawPage: React.FC = () => {
     setReqLoading(false);
   };
 
+  const hasPendingWd = requests.some(r => r.status === "pending");
+
   const numAmount = parseInt(form.amount) || 0;
   const receivedAmount = numAmount > WITHDRAW_FEE ? numAmount - WITHDRAW_FEE : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (hasPendingWd) {
+      toast({ title: "Penarikan sedang diproses", description: "Tunggu hingga penarikan sebelumnya selesai.", variant: "destructive" });
+      return;
+    }
 
     if (!numAmount || numAmount < MIN_WITHDRAW) {
       toast({ title: `Minimum penarikan ${formatIDR(MIN_WITHDRAW)}`, variant: "destructive" });
@@ -140,6 +147,19 @@ const WithdrawPage: React.FC = () => {
         <p className="text-3xl font-bold text-foreground mt-1">{formatIDR(profile?.balance || 0)}</p>
       </div>
 
+      {/* Pending WD Warning */}
+      {hasPendingWd && (
+        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
+          <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-400">Ada Penarikan Sedang Diproses</p>
+            <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
+              Anda tidak dapat mengajukan penarikan baru selama masih ada penarikan yang menunggu persetujuan admin. Silakan tunggu hingga penarikan sebelumnya selesai diproses.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Withdraw Form */}
       <div className="bg-card rounded-2xl p-6 border border-border shadow-card">
         <div className="flex items-center gap-3 mb-5">
@@ -152,7 +172,7 @@ const WithdrawPage: React.FC = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className={`space-y-4 ${hasPendingWd ? "opacity-50 pointer-events-none select-none" : ""}`}>
           <div className="space-y-2">
             <Label>Jumlah Penarikan (IDR)</Label>
             <Input
